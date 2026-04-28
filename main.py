@@ -5,12 +5,13 @@ from core.camera import Camera
 from core.window import Window
 from core.shader import Shader
 from core.mesh import Mesh
+from game.level import create_room
 
 # ── Shaders ───────────────────────────────────────────────────────────────────
 
 VERTEX_SHADER = """
 #version 330 core
-in vec3 position;
+layout (location = 0) in vec3 position;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
@@ -22,8 +23,9 @@ void main() {
 FRAGMENT_SHADER = """
 #version 330 core
 out vec4 fragColor;
+uniform vec3 uColor;
 void main() {
-    fragColor = vec4(0.2, 0.6, 1.0, 1.0);
+    fragColor = vec4(uColor, 1.0);
 }
 """
 
@@ -56,7 +58,8 @@ def main():
     window.set_callback_mouse(lambda win, x, y: camera.process_mouse_movement(x, y))
 
     shader = Shader(VERTEX_SHADER, FRAGMENT_SHADER)
-    cubo   = Mesh(VERTICES_CUBO)
+    # cubo   = Mesh(VERTICES_CUBO)
+    scene = create_room()
 
     projection = pyrr.matrix44.create_perspective_projection(
         90.0,
@@ -87,7 +90,7 @@ def main():
         shader.set_matrix4("view",       view)
         shader.set_matrix4("projection", projection)
 
-        cubo.draw()
+        scene.draw(shader)
 
         window.show()
 
