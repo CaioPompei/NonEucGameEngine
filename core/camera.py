@@ -41,6 +41,9 @@ class Camera:
     def process_input(self, window, delta_time):
 
         speed =  self.speed * delta_time
+        if glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS:
+            speed *= 2
+
         if glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
             self.position += self.front * speed
         if glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
