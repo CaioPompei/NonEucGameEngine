@@ -40,7 +40,7 @@ def create_room(width=10.0, height=4.0, depth=10.0) -> Scene:
     W = width 
     H = height
     D = depth
-    T = 0.2
+    T = 0.25
     floor_color = (0.35, 0.30, 0.22)
     wall_color = (0.72, 0.77, 0.82)
     ceiling_color = (0.90, 0.90, 0.95)

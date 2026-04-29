@@ -30,8 +30,21 @@ class Mesh:
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, None)
-        glEnableVertexAttribArray(0)
+        if have_normals:
+            stride = 6 * 4  # 6 floats per vertex (3 for position, 3 for normal), 4 bytes per float
 
+            # location = 0 first 3 floats are position
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, None)
+            glEnableVertexAttribArray(0)
+
+            #location = 1 normal, next 3 floats
+            import ctypes
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(3 * 4))
+            glEnableVertexAttribArray(1)
+        else:
+            # no normals, like before
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, None)
+            glEnableVertexAttribArray(0)
+            
         glBindVertexArray(0)
         return vao
