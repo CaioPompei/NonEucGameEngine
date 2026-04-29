@@ -54,9 +54,9 @@ class Camera:
             self.position += self.right * speed
 
         # Q / E to move up and down
-        if glfw.get_key(window, glfw.KEY_Q) == glfw.PRESS:
-            self.position += self.up * speed
         if glfw.get_key(window, glfw.KEY_E) == glfw.PRESS:
+            self.position += self.up * speed
+        if glfw.get_key(window, glfw.KEY_Q) == glfw.PRESS:
             self.position -= self.up * speed
 
         # ESC to close the window
