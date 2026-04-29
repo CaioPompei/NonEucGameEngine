@@ -13,7 +13,7 @@ class Entity:
                  position=(0.0, 0.0, 0.0),
                  rotation=(0.0, 0.0, 0.0),
                  scale=   (1.0, 1.0, 1.0),
-                 color=(0.2, 0.6, 1.0)):
+                 color=(1.0, 1.0, 1.0)):
         self.mesh = mesh
         self.position = np.array(position, dtype=np.float32)
         self.rotation = np.array(rotation, dtype=np.float32)
@@ -53,6 +53,6 @@ class Entity:
             Shader must be active.
         """
         shader.set_matrix4("model", self.get_model_matrix())
-        shader.set_vec3("uColor", self.color)
+        shader.set_vec3("objectColor", self.color)
         self.mesh.draw()
             
