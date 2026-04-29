@@ -14,6 +14,7 @@ def create_room(width=10.0, height=4.0, depth=10.0) -> Scene:
 
     W, H, D, T = width, height, depth, 0.25
 
+    # Remeber: scale() order is: X, Y, Z.
     # Floor — dark gray
     scene.add_entity(Entity(cube, position=(0.0, -H*2, 0.0), scale=(W, T, D), color=(0.4, 0.4, 0.4)))
     # Ceiling — light gray
@@ -26,5 +27,7 @@ def create_room(width=10.0, height=4.0, depth=10.0) -> Scene:
     scene.add_entity(Entity(cube, position=(-W*2, 0.0, 0.0), scale=(T, H, D), color=(0.6, 0.5, 0.5)))
     # Right wall
     scene.add_entity(Entity(cube, position=(W*2, 0.0, 0.0), scale=(T, H, D), color=(0.6, 0.5, 0.5)))
+    # Divider wall - red
+    scene.add_entity(Entity(cube, position=(W*0.9, -0.65, -0.25), scale=(T, H/2.5, D/1.5), color=(0.7, 0.3, 0.3)))
 
     return scene
