@@ -8,13 +8,13 @@ class Mesh:
     Manages the VAO and VBO. Doesn't know anything about shaders or camera.
     """
 
-    def __init__(self, vertices: np.ndarray):
+    def __init__(self, vertices: np.ndarray, have_normals: bool = False):
         """
         vertices: numpy array float32 with the vertices already organized.
         For now, it assumes each vertex has 3 floats (x, y, z).
         """
         self._num_vertices = len(vertices) // 3
-        self._vao = self._create_vao(vertices)
+        self._vao = self._create_vao(vertices, have_normals)
 
     def draw(self):
         glBindVertexArray(self._vao)
@@ -22,7 +22,7 @@ class Mesh:
         glBindVertexArray(0)
 
     # VAO = Vertex Array Object = sets up how the vertex data is stored in the GPU
-    def _create_vao(self, vertices):
+    def _create_vao(self, vertices, have_normals):
         vao = glGenVertexArrays(1)
         glBindVertexArray(vao)
 
@@ -45,6 +45,6 @@ class Mesh:
             # no normals, like before
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, None)
             glEnableVertexAttribArray(0)
-            
+
         glBindVertexArray(0)
         return vao
