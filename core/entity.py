@@ -39,13 +39,10 @@ class Entity:
         # Scale Matrix - Scale the object by its scale factors
         S = pyrr.matrix44.create_from_scale(self.scale, dtype=np.float32)
 
-        # Composition: T * Rz * Ry * Rx * S
-        # Matrix are applied from right to left, so the order is Scale -> Rotation -> Translation
-        R = pyrr.matrix44.multiply(Rx, S)
-        R = pyrr.matrix44.multiply(Ry, R)
-        R = pyrr.matrix44.multiply(Rz, R)   
-        R = pyrr.matrix44.multiply(T, R)
-        return R
+        # With the current matrix convention used in this project, the transform chain
+        # must be composed left-to-right as Scale -> Rotation -> Translation.
+        model = S @ Rx @ Ry @ Rz @ T
+        return model.astype(np.float32)
     
     def draw(self, shader):
         """
