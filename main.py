@@ -1,13 +1,26 @@
 import glfw
 import numpy as np
 import pyrr
+from OpenGL.GL import *
 from core.camera import Camera
+from core.portal import Portal
 from core.window import Window
 from core.shader import Shader
 from core.mesh import Mesh
 from game.level import create_room
 
 # ── Shaders ───────────────────────────────────────────────────────────────────
+
+VERTEX_SIMPLE_SHADER = """
+#version 330 core
+layout (location = 0) in vec3 position;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+void main() {
+    gl_Position = projection * view * model * vec4(position, 1.0);
+}
+"""
 
 VERTEX_SHADER = """
 #version 330 core
@@ -32,6 +45,16 @@ void main() {
     gl_Position = projection * view * model * vec4(position, 1.0);
 }
 """
+
+FRAGMENT_SIMPLE_SHADER = """
+#version 330 core
+out vec4 fragColor;
+uniform vec3 objectColor;
+void main() {
+    fragColor = vec4(objectColor, 1.0); // Red color
+}
+"""
+
 
 FRAGMENT_SHADER = """
 #version 330 core
@@ -69,6 +92,53 @@ void main() {
 }
 """
 
+def render_portal(portals, shader_phong, simple_shader, real_view,
+                  projection, light_pos, light_color, camera_pos, scene):
+    glEnable(GL_STENCIL_TEST)
+
+    for portal in portals:
+        if portal.destiny is None:
+            continue
+
+        glClear(GL_STENCIL_BUFFER_BIT)
+
+        simple_shader.use()
+        simple_shader.set_matrix4("view",       real_view)
+        simple_shader.set_matrix4("projection", projection)
+
+        portal.draw_stencil(simple_shader)        # ← nome correto
+
+        glStencilFunc(GL_EQUAL, 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+
+        glDepthMask(GL_TRUE)
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+        glClear(GL_DEPTH_BUFFER_BIT)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
+
+        virtual_view = portal.calculate_virtual_view(real_view)  # ← nome correto
+
+        shader_phong.use()
+        shader_phong.set_matrix4("view",       virtual_view)
+        shader_phong.set_matrix4("projection", projection)
+        shader_phong.set_vec3("lightPos",   light_pos)
+        shader_phong.set_vec3("lightColor", light_color)
+        shader_phong.set_vec3("cameraPos",  camera_pos)
+        scene.draw(shader_phong)
+
+        glDisable(GL_STENCIL_TEST)
+        simple_shader.use()
+        simple_shader.set_matrix4("view",       real_view)
+        simple_shader.set_matrix4("projection", projection)
+        glEnable(GL_STENCIL_TEST)
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+        portal.draw_portal_border(simple_shader) 
+        glDisable(GL_STENCIL_TEST)
+        glEnable(GL_STENCIL_TEST)
+
+    glDisable(GL_STENCIL_TEST)
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -78,9 +148,25 @@ def main():
     window.get_mouse()
     window.set_callback_mouse(lambda win, x, y: camera.process_mouse_movement(x, y))
 
-    shader = Shader(VERTEX_SHADER, FRAGMENT_SHADER)
+    phong_shader = Shader(VERTEX_SHADER, FRAGMENT_SHADER)
+    simple_shader = Shader(VERTEX_SIMPLE_SHADER, FRAGMENT_SIMPLE_SHADER)
     # cubo   = Mesh(VERTICES_CUBO)
     scene = create_room()
+
+    # Create Portals
+    # Portal A - North Wall
+    # Portal B - South Wall
+    portal_a = Portal(position=(0.0, 0.0, -5.7), rotation=0.0, color=(1.0, 0.5, 0.5))
+    portal_b = Portal(position=(0.0, 0.0, 5.7), rotation=0.0, color=(0.2, 0.5, 1.0))
+
+    # Connects the portals
+    portal_a.destiny = portal_b
+    portal_b.destiny = portal_a
+
+    portals = [portal_a, portal_b]
+
+    print(f"Portal A: {portal_a.position}, destino: {portal_a.destiny is not None}")
+    print(f"Portal B: {portal_b.position}, destino: {portal_b.destiny is not None}")
 
     projection = pyrr.matrix44.create_perspective_projection(
         90.0,
@@ -109,17 +195,20 @@ def main():
 
         window.clear()
 
-        shader.use()
+        phong_shader.use()
         # shader.set_matrix4("model",      model)
-        shader.set_matrix4("view",       view)
-        shader.set_matrix4("projection", projection)
-        shader.set_vec3("lightPos", light_pos)
-        shader.set_vec3("lightColor", light_color)
-        shader.set_vec3("cameraPos", camera.position)
+        phong_shader.set_matrix4("view",       view)
+        phong_shader.set_matrix4("projection", projection)
+        phong_shader.set_vec3("lightPos", light_pos)
+        phong_shader.set_vec3("lightColor", light_color)
+        phong_shader.set_vec3("cameraPos", camera.position)
+        scene.draw(phong_shader)
 
-        scene.draw(shader)
+        render_portal(portals, phong_shader, simple_shader, view, projection, light_pos, light_color, camera.position, scene)
 
         window.show()
+
+    
 
     window.close()
 

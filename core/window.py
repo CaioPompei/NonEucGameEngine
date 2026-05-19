@@ -15,6 +15,8 @@ class Window:
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+        glfw.window_hint(glfw.STENCIL_BITS, 8)
+
 
         # Create the window; Width, Height, Title, Monitor (none = Windowed)
         self._window = glfw.create_window(Width, Height, title, None, None)
@@ -39,7 +41,7 @@ class Window:
 
     def clear(self):
         glClearColor(0.1, 0.1, 0.2, 1.0)
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
 
     def show(self):
         glfw.swap_buffers(self._window)
