@@ -24,17 +24,30 @@ def portal_normal_world(rotation_degrees: float) -> np.ndarray:
     return np.array([math.sin(theta), 0.0, math.cos(theta)], dtype=np.float32)
 
 
+_FLIP_Y_180 = np.array([
+    [-1.0, 0.0,  0.0, 0.0],
+    [ 0.0, 1.0,  0.0, 0.0],
+    [ 0.0, 0.0, -1.0, 0.0],
+    [ 0.0, 0.0,  0.0, 1.0],
+], dtype=np.float32)
+
+
 def calculate_virtual_view(real_view: np.ndarray,
                            origin_transform: np.ndarray,
                            destiny_transform: np.ndarray) -> np.ndarray:
     """
     View matrix da câmera virtual para renderizar o lado destino do portal.
 
+    Inclui uma rotação de 180° em Y entre origem e destino: ao "atravessar"
+    um portal, a câmera sai pela FRENTE do destino, não pela costas. Sem
+    esse flip, a câmera virtual ficaria espelhada e olharia para o lado
+    oposto do esperado.
+
     Pyrr (row-vector):
-        V_virtual = inv(M_destino) @ M_origem @ V_real
+        V_virtual = inv(M_destino) @ FlipY180 @ M_origem @ V_real
     """
     inv_destiny = np.linalg.inv(destiny_transform)
-    virtual_view = inv_destiny @ origin_transform @ real_view
+    virtual_view = inv_destiny @ _FLIP_Y_180 @ origin_transform @ real_view
     return virtual_view.astype(np.float32)
 
 

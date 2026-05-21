@@ -100,6 +100,12 @@ def render_portal(portals, shader_phong, simple_shader, real_view,
         if portal.destiny is None:
             continue
 
+        # Skip when looking at the back of the portal. The quad has no
+        # face culling, so without this check the stencil would be marked
+        # from both sides and the virtual scene would leak through the back.
+        if not portal.is_camera_in_front(camera_pos):
+            continue
+
         # glClear(GL_DEPTH_BUFFER_BIT) ignores stencil test on desktop GL,
         # so the previous portal iteration wiped the whole depth buffer.
         # Repopulate it with the real scene before marking this portal's
@@ -173,7 +179,7 @@ def main():
     # Portal A - North Wall
     # Portal B - South Wall
     portal_a = Portal(position=(0.0, 0.0, -9.7), rotation=0.0, color=(1.0, 0.5, 0.5))
-    portal_b = Portal(position=(0.0, 0.0, 9.7), rotation=0.0, color=(0.2, 0.5, 1.0))
+    portal_b = Portal(position=(0.0, 0.0, 9.7), rotation=180.0, color=(0.2, 0.5, 1.0))
 
     # Connects the portals
     portal_a.destiny = portal_b

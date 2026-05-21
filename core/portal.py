@@ -7,6 +7,7 @@ from core.shader import Shader
 from math3d.portal_math import (
     calculate_virtual_view as _calculate_virtual_view,
     calculate_oblique_projection as _calculate_oblique_projection,
+    portal_normal_world as _portal_normal_world,
 )
 
 def create_portal_mesh() -> Mesh:
@@ -77,6 +78,15 @@ class Portal:
         T = pyrr.matrix44.create_from_translation(self.position, dtype=np.float32)
         R = pyrr.matrix44.create_from_y_rotation(math.radians(self.rotation), dtype=np.float32)
         return (R @ T).astype(np.float32)  #rotação + translação
+
+    def is_camera_in_front(self, camera_pos) -> bool:
+        """
+        True se a câmera está no semi-espaço para onde a normal frontal do
+        portal aponta. Evita que o portal seja aberto quando visto por trás.
+        """
+        normal = _portal_normal_world(self.rotation)
+        portal_to_cam = np.asarray(camera_pos, dtype=np.float32) - self.position
+        return float(np.dot(normal, portal_to_cam)) > 0.0
 
     def calculate_virtual_view(self, realView: np.ndarray) -> np.ndarray:
         """
