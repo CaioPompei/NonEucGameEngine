@@ -11,9 +11,10 @@ class Mesh:
     def __init__(self, vertices: np.ndarray, have_normals: bool = False):
         """
         vertices: numpy array float32 with the vertices already organized.
-        For now, it assumes each vertex has 3 floats (x, y, z).
+        Each vertex is 3 floats (x, y, z), or 6 floats if have_normals (x, y, z, nx, ny, nz).
         """
-        self._num_vertices = len(vertices) // 3
+        floats_per_vertex = 6 if have_normals else 3
+        self._num_vertices = len(vertices) // floats_per_vertex
         self._vao = self._create_vao(vertices, have_normals)
 
     def draw(self):

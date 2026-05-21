@@ -4,6 +4,10 @@ import math
 from OpenGL.GL import *
 from core.mesh import Mesh
 from core.shader import Shader
+from math3d.portal_math import (
+    calculate_virtual_view as _calculate_virtual_view,
+    calculate_oblique_projection as _calculate_oblique_projection,
+)
 
 def create_portal_mesh() -> Mesh:
     """
@@ -61,7 +65,7 @@ class Portal:
             math.radians(self.rotation), dtype=np.float32)
 
         S = pyrr.matrix44.create_from_scale(
-            np.array([1.5, 2.0, 1.0], dtype=np.float32), dtype=np.float32)
+            np.array([12, 5.0, 5.0], dtype=np.float32), dtype=np.float32)
         # Create below a print that show the position, rotation and scale of the portal for debugging
         # print(f"Portal Model Matrix:\nPosition: {self.position}, Rotation: {self.rotation}, Scale: [1.5, 2.0, 1.0]\n{S @ R @ T}")
 
@@ -75,22 +79,30 @@ class Portal:
         return (R @ T).astype(np.float32)  #rotação + translação
 
     def calculate_virtual_view(self, realView: np.ndarray) -> np.ndarray:
-        """ 
-        Calculate the View Matrix for the virtual camera on the destination side.
-
-        The formula is:
-            realView = real_view_do_destino
-                         = view × inv(model_origem) × rotation_180 × destinyModel
-
-        Rotation Y is necessary because the portals face each other:
-        entering through the front of A means exiting through the front of B,
-        so the camera needs to be rotated 180° upon arrival.
         """
-        M_Origin = self.get_portal_transform()
-        M_destiny = self.destiny.get_portal_transform()
-        inv_destiny = np.linalg.inv(M_destiny)
-        virtualView = inv_destiny @ M_Origin @ realView
-        return virtualView.astype(np.float32)
+        View matrix da câmera virtual no lado destino do portal.
+        Delegação para math3d.portal_math.
+        """
+        return _calculate_virtual_view(
+            realView,
+            self.get_portal_transform(),
+            self.destiny.get_portal_transform(),
+        )
+
+    def calculate_oblique_projection(self,
+                                     virtual_view: np.ndarray,
+                                     projection: np.ndarray) -> np.ndarray:
+        """
+        Projeção com near plane oblíquo coincidindo com o plano do portal
+        destino. Evita que geometria entre a câmera virtual e o portal
+        destino "vaze" para dentro da máscara do stencil.
+        """
+        return _calculate_oblique_projection(
+            projection,
+            virtual_view,
+            self.destiny.position,
+            self.destiny.rotation,
+        )
     
     # Rendering
 
@@ -106,10 +118,7 @@ class Portal:
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_FALSE)
 
-        glEnable(GL_POLYGON_OFFSET_FILL)  # Avoid z-fighting with the portal border
-        glPolygonOffset(-1.0, -1.0)
-
-        # Configures stencil to write 1 where quads are drawn.  
+        # Configures stencil to write 1 where quads are drawn.
         glStencilFunc(GL_ALWAYS, 1, 0xFF)  # Always pass stencil test, reference value = 1
         glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)  # Replace stencil value with ref on depth pass
 
@@ -130,5 +139,3 @@ class Portal:
         shader.set_matrix4("model", self.get_model_matrix())
         shader.set_vec3("objectColor", self.color)
         Portal.mesh_quad.draw()
-
-        glDisable(GL_POLYGON_OFFSET_FILL)

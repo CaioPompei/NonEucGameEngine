@@ -3,6 +3,7 @@ import numpy as np
 import pyrr
 from OpenGL.GL import *
 from core.camera import Camera
+from core.player import Player
 from core.portal import Portal
 from core.window import Window
 from core.shader import Shader
@@ -94,19 +95,36 @@ void main() {
 
 def render_portal(portals, shader_phong, simple_shader, real_view,
                   projection, light_pos, light_color, camera_pos, scene):
-    glEnable(GL_STENCIL_TEST)
-
-    for portal in portals:
+    for i, portal in enumerate(portals):
         if portal.destiny is None:
             continue
 
+        # glClear(GL_DEPTH_BUFFER_BIT) ignores stencil test on desktop GL,
+        # so the previous portal iteration wiped the whole depth buffer.
+        # Repopulate it with the real scene before marking this portal's
+        # stencil — otherwise the quad would pass the depth test everywhere.
+        if i > 0:
+            glDisable(GL_STENCIL_TEST)
+            glClear(GL_DEPTH_BUFFER_BIT)
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+            glDepthMask(GL_TRUE)
+            shader_phong.use()
+            shader_phong.set_matrix4("view",       real_view)
+            shader_phong.set_matrix4("projection", projection)
+            shader_phong.set_vec3("lightPos",   light_pos)
+            shader_phong.set_vec3("lightColor", light_color)
+            shader_phong.set_vec3("cameraPos",  camera_pos)
+            scene.draw(shader_phong)
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
+
+        glEnable(GL_STENCIL_TEST)
         glClear(GL_STENCIL_BUFFER_BIT)
 
         simple_shader.use()
         simple_shader.set_matrix4("view",       real_view)
         simple_shader.set_matrix4("projection", projection)
 
-        portal.draw_stencil(simple_shader)        # ← nome correto
+        portal.draw_stencil(simple_shader)
 
         glStencilFunc(GL_EQUAL, 1, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
@@ -116,26 +134,17 @@ def render_portal(portals, shader_phong, simple_shader, real_view,
         glClear(GL_DEPTH_BUFFER_BIT)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
 
-        virtual_view = portal.calculate_virtual_view(real_view)  # ← nome correto
+        virtual_view = portal.calculate_virtual_view(real_view)
+        oblique_projection = portal.calculate_oblique_projection(
+            virtual_view, projection)
 
         shader_phong.use()
         shader_phong.set_matrix4("view",       virtual_view)
-        shader_phong.set_matrix4("projection", projection)
+        shader_phong.set_matrix4("projection", oblique_projection)
         shader_phong.set_vec3("lightPos",   light_pos)
         shader_phong.set_vec3("lightColor", light_color)
         shader_phong.set_vec3("cameraPos",  camera_pos)
         scene.draw(shader_phong)
-
-        glDisable(GL_STENCIL_TEST)
-        simple_shader.use()
-        simple_shader.set_matrix4("view",       real_view)
-        simple_shader.set_matrix4("projection", projection)
-        glEnable(GL_STENCIL_TEST)
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF)
-        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
-        portal.draw_portal_border(simple_shader) 
-        glDisable(GL_STENCIL_TEST)
-        glEnable(GL_STENCIL_TEST)
 
     glDisable(GL_STENCIL_TEST)
 
@@ -144,6 +153,7 @@ def render_portal(portals, shader_phong, simple_shader, real_view,
 def main():
     window = Window(1200, 720, "What is There?")
     camera = Camera(position=(0.0, 0.5, 3.0))
+    player = Player(camera)
 
     window.get_mouse()
     window.set_callback_mouse(lambda win, x, y: camera.process_mouse_movement(x, y))
@@ -156,8 +166,8 @@ def main():
     # Create Portals
     # Portal A - North Wall
     # Portal B - South Wall
-    portal_a = Portal(position=(0.0, 0.0, -5.7), rotation=0.0, color=(1.0, 0.5, 0.5))
-    portal_b = Portal(position=(0.0, 0.0, 5.7), rotation=0.0, color=(0.2, 0.5, 1.0))
+    portal_a = Portal(position=(0.0, 0.0, -9.7), rotation=0.0, color=(1.0, 0.5, 0.5))
+    portal_b = Portal(position=(0.0, 0.0, 9.7), rotation=0.0, color=(0.2, 0.5, 1.0))
 
     # Connects the portals
     portal_a.destiny = portal_b
@@ -190,7 +200,7 @@ def main():
     
         window.process_events()
     
-        camera.process_input(window.get_handle(), delta_time)
+        player.process_input(window.get_handle(), delta_time)
         view = camera.get_view_matrix()
 
         window.clear()
