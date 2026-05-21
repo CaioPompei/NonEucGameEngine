@@ -8,6 +8,7 @@ from core.portal import Portal
 from core.window import Window
 from core.shader import Shader
 from core.mesh import Mesh
+from core.text_overlay import TextOverlay
 from game.level import create_room
 
 # ── Shaders ───────────────────────────────────────────────────────────────────
@@ -128,7 +129,8 @@ def render_portal(portals, shader_phong, simple_shader, real_view,
 
         glStencilFunc(GL_EQUAL, 1, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
-
+        #Create border:
+        #portal.draw_portal_border(simple_shader)
         glDepthMask(GL_TRUE)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glClear(GL_DEPTH_BUFFER_BIT)
@@ -162,6 +164,10 @@ def main():
     simple_shader = Shader(VERTEX_SIMPLE_SHADER, FRAGMENT_SIMPLE_SHADER)
     # cubo   = Mesh(VERTICES_CUBO)
     scene = create_room()
+
+    debug_overlay = TextOverlay("debug mode", 1200, 720,
+                                font_size=22,
+                                color=(255, 230, 80, 255))
 
     # Create Portals
     # Portal A - North Wall
@@ -215,6 +221,9 @@ def main():
         scene.draw(phong_shader)
 
         render_portal(portals, phong_shader, simple_shader, view, projection, light_pos, light_color, camera.position, scene)
+
+        if player.mode == Player.MODE_FREECAM:
+            debug_overlay.draw()
 
         window.show()
 

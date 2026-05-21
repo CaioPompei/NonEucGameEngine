@@ -18,7 +18,7 @@ class Player:
                  eye_height=6,
                  ground_y=-5.875,
                  gravity=-20.0,
-                 jump_speed=7.0,
+                 jump_speed=9.0,
                  move_speed=5.0):
         self.camera = camera
 
