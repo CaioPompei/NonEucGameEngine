@@ -94,67 +94,114 @@ void main() {
 }
 """
 
+PORTAL_RECURSION_DEPTH = 3  # how many nested portal levels to render
+
+
+def _draw_portal_quad(portal, shader, view, projection):
+    shader.set_matrix4("view", view)
+    shader.set_matrix4("projection", projection)
+    shader.set_matrix4("model", portal.get_model_matrix())
+    Portal.mesh_quad.draw()
+
+
 def render_portal(portals, shader_phong, simple_shader, real_view,
-                  projection, light_pos, light_color, camera_pos, scene):
-    for i, portal in enumerate(portals):
+                  projection, light_pos, light_color, scene):
+    glEnable(GL_STENCIL_TEST)
+    glClear(GL_STENCIL_BUFFER_BIT)
+    _render_portal_recursive(
+        portals, shader_phong, simple_shader,
+        real_view, projection,
+        light_pos, light_color, scene,
+        depth=0,
+    )
+    glDisable(GL_STENCIL_TEST)
+
+
+def _render_portal_recursive(portals, shader_phong, simple_shader,
+                             view, projection,
+                             light_pos, light_color, scene, depth):
+    # Camera position for this view — needed for the "facing" check.
+    inv_view = np.linalg.inv(view)
+    cam_pos = inv_view[3, :3]
+
+    for portal in portals:
         if portal.destiny is None:
             continue
-
-        # Skip when looking at the back of the portal. The quad has no
-        # face culling, so without this check the stencil would be marked
-        # from both sides and the virtual scene would leak through the back.
-        if not portal.is_camera_in_front(camera_pos):
+        if not portal.is_camera_in_front(cam_pos):
             continue
 
-        # glClear(GL_DEPTH_BUFFER_BIT) ignores stencil test on desktop GL,
-        # so the previous portal iteration wiped the whole depth buffer.
-        # Repopulate it with the real scene before marking this portal's
-        # stencil — otherwise the quad would pass the depth test everywhere.
-        if i > 0:
-            glDisable(GL_STENCIL_TEST)
-            glClear(GL_DEPTH_BUFFER_BIT)
-            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
-            glDepthMask(GL_TRUE)
-            shader_phong.use()
-            shader_phong.set_matrix4("view",       real_view)
-            shader_phong.set_matrix4("projection", projection)
-            shader_phong.set_vec3("lightPos",   light_pos)
-            shader_phong.set_vec3("lightColor", light_color)
-            shader_phong.set_vec3("cameraPos",  camera_pos)
-            scene.draw(shader_phong)
-            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
-
-        glEnable(GL_STENCIL_TEST)
-        glClear(GL_STENCIL_BUFFER_BIT)
-
-        simple_shader.use()
-        simple_shader.set_matrix4("view",       real_view)
-        simple_shader.set_matrix4("projection", projection)
-
-        portal.draw_stencil(simple_shader)
-
-        glStencilFunc(GL_EQUAL, 1, 0xFF)
-        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
-        #Create border:
-        #portal.draw_portal_border(simple_shader)
-        glDepthMask(GL_TRUE)
+        # 1. Mark stencil: increment from `depth` to `depth+1` where this
+        #    portal is visible in the current view (depth test active).
+        glStencilFunc(GL_EQUAL, depth, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_INCR)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
-        glClear(GL_DEPTH_BUFFER_BIT)
+        glDepthMask(GL_FALSE)
+        simple_shader.use()
+        _draw_portal_quad(portal, simple_shader, view, projection)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
+        glDepthMask(GL_TRUE)
+
+        # 2. Virtual view/projection through this portal.
+        new_view = portal.calculate_virtual_view(view)
+        new_proj = portal.calculate_oblique_projection(new_view, projection)
+
+        # 3. Reset depth to far inside the new stencil region.
+        #    glClear ignores stencil test, so we draw the portal quad with
+        #    glDepthRange(1,1) + GL_ALWAYS to force depth=1.0 there.
+        glStencilFunc(GL_EQUAL, depth + 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+        glDepthMask(GL_TRUE)
+        glDepthFunc(GL_ALWAYS)
+        glDepthRange(1.0, 1.0)
+        _draw_portal_quad(portal, simple_shader, view, projection)
+        glDepthRange(0.0, 1.0)
+        glDepthFunc(GL_LESS)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
 
-        virtual_view = portal.calculate_virtual_view(real_view)
-        oblique_projection = portal.calculate_oblique_projection(
-            virtual_view, projection)
-
+        # 4. Draw the scene at this nested level, constrained to stencil == depth+1.
+        new_cam_pos = np.linalg.inv(new_view)[3, :3]
+        glStencilFunc(GL_EQUAL, depth + 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
         shader_phong.use()
-        shader_phong.set_matrix4("view",       virtual_view)
-        shader_phong.set_matrix4("projection", oblique_projection)
-        shader_phong.set_vec3("lightPos",   light_pos)
+        shader_phong.set_matrix4("view", new_view)
+        shader_phong.set_matrix4("projection", new_proj)
+        shader_phong.set_vec3("lightPos", light_pos)
         shader_phong.set_vec3("lightColor", light_color)
-        shader_phong.set_vec3("cameraPos",  camera_pos)
+        shader_phong.set_vec3("cameraPos", new_cam_pos)
         scene.draw(shader_phong)
 
-    glDisable(GL_STENCIL_TEST)
+        # 5. Recurse into the deeper level so portals seen *inside* the virtual
+        #    scene also open up.
+        if depth + 1 < PORTAL_RECURSION_DEPTH:
+            _render_portal_recursive(
+                portals, shader_phong, simple_shader,
+                new_view, new_proj,
+                light_pos, light_color, scene,
+                depth + 1,
+            )
+
+        # 6. Decrement stencil back to `depth` so siblings at this level
+        #    aren't masked out by the work we just did.
+        glStencilFunc(GL_EQUAL, depth + 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_DECR)
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+        glDepthMask(GL_FALSE)
+        simple_shader.use()
+        _draw_portal_quad(portal, simple_shader, view, projection)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
+        glDepthMask(GL_TRUE)
+
+        # 7. Restore depth at the portal quad position in this level's stencil,
+        #    so the next sibling portal sees a consistent depth buffer.
+        glStencilFunc(GL_EQUAL, depth, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
+        glDepthMask(GL_TRUE)
+        glDepthFunc(GL_ALWAYS)
+        _draw_portal_quad(portal, simple_shader, view, projection)
+        glDepthFunc(GL_LESS)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -226,7 +273,7 @@ def main():
         phong_shader.set_vec3("cameraPos", camera.position)
         scene.draw(phong_shader)
 
-        render_portal(portals, phong_shader, simple_shader, view, projection, light_pos, light_color, camera.position, scene)
+        render_portal(portals, phong_shader, simple_shader, view, projection, light_pos, light_color, scene)
 
         if player.mode == Player.MODE_FREECAM:
             debug_overlay.draw()
