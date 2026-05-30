@@ -84,7 +84,8 @@ def main():
         phong_shader.set_vec3("cameraPos", camera.position)
         scene.draw(phong_shader)
 
-        portal_renderer.render(view, projection, light_pos, light_color)
+        portal_renderer.render(view, projection, light_pos, light_color,
+                               camera.position)
 
         if player.mode == Player.MODE_FREECAM:
             debug_overlay.draw()

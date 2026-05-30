@@ -44,63 +44,79 @@ class PortalRenderer:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def render(self, view, projection, light_pos, light_color):
+    def render(self, view, projection, light_pos, light_color, cam_pos):
         glEnable(GL_STENCIL_TEST)
         glClear(GL_STENCIL_BUFFER_BIT)
-        self._render_recursive(view, projection, light_pos, light_color, depth=0)
+        self._render_recursive(view, projection, light_pos, light_color,
+                               depth=0, cam_pos=cam_pos)
         glDisable(GL_STENCIL_TEST)
 
     # ── Recursive core ────────────────────────────────────────────────────────
 
-    def _render_recursive(self, view, projection, light_pos, light_color, depth):
-        cam_pos = self._camera_position(view)
-
+    def _render_recursive(self, view, projection, light_pos, light_color,
+                          depth, cam_pos):
         for portal in self.portals:
             if portal.destiny is None:
                 continue
             if not portal.is_camera_in_front(cam_pos):
                 continue
 
-            self._mark_stencil_inc(portal, view, projection, depth)
+            # The four stencil/depth passes below all draw the same quad
+            # with the same model/view/projection. Bind the stencil shader
+            # and its uniforms once before the first pair of passes.
+            self._bind_quad_uniforms(portal, view, projection)
+            self._mark_stencil_inc(depth)
+            self._reset_depth_in_stencil(depth + 1)
 
             new_view = portal.calculate_virtual_view(view)
             new_proj = portal.calculate_oblique_projection(new_view, projection)
+            # One matrix inverse per recursion level, instead of several.
+            new_cam_pos = np.linalg.inv(new_view)[3, :3]
 
-            self._reset_depth_in_stencil(portal, view, projection, depth + 1)
-            self._draw_scene(new_view, new_proj, light_pos, light_color, depth + 1)
+            self._draw_scene(new_view, new_proj, light_pos, light_color,
+                             depth + 1, new_cam_pos)
 
             if depth + 1 < self.max_depth:
                 self._render_recursive(new_view, new_proj,
-                                       light_pos, light_color, depth + 1)
+                                       light_pos, light_color,
+                                       depth + 1, new_cam_pos)
 
-            self._mark_stencil_dec(portal, view, projection, depth + 1)
-            self._restore_depth_at_portal(portal, view, projection, depth)
+            # _draw_scene and the recursion switched programs and uniforms;
+            # rebind the stencil shader and quad uniforms before the
+            # decrement/restore pair.
+            self._bind_quad_uniforms(portal, view, projection)
+            self._mark_stencil_dec(depth + 1)
+            self._restore_depth_at_portal(depth)
 
     # ── Stencil / depth state helpers ─────────────────────────────────────────
 
-    def _mark_stencil_inc(self, portal, view, projection, depth):
+    def _bind_quad_uniforms(self, portal, view, projection):
+        self.stencil_shader.use()
+        self.stencil_shader.set_matrix4("view", view)
+        self.stencil_shader.set_matrix4("projection", projection)
+        self.stencil_shader.set_matrix4("model", portal.get_model_matrix())
+
+    def _mark_stencil_inc(self, depth):
         """Increment stencil where the portal quad is visible at this depth."""
         glStencilFunc(GL_EQUAL, depth, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_INCR)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_FALSE)
-        self.stencil_shader.use()
-        self._draw_quad(portal, view, projection)
+        Portal.mesh_quad.draw()
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
         glDepthMask(GL_TRUE)
 
-    def _mark_stencil_dec(self, portal, view, projection, stencil_ref):
+    def _mark_stencil_dec(self, stencil_ref):
         """Undo the matching increment so siblings aren't masked out."""
         glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_DECR)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_FALSE)
-        self.stencil_shader.use()
-        self._draw_quad(portal, view, projection)
+        Portal.mesh_quad.draw()
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
         glDepthMask(GL_TRUE)
 
-    def _reset_depth_in_stencil(self, portal, view, projection, stencil_ref):
+    def _reset_depth_in_stencil(self, stencil_ref):
         """
         Force depth=1.0 inside stencil==stencil_ref. glClear ignores the
         stencil test, so we draw the portal quad with glDepthRange(1,1)
@@ -112,13 +128,12 @@ class PortalRenderer:
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_ALWAYS)
         glDepthRange(1.0, 1.0)
-        self.stencil_shader.use()
-        self._draw_quad(portal, view, projection)
+        Portal.mesh_quad.draw()
         glDepthRange(0.0, 1.0)
         glDepthFunc(GL_LESS)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
 
-    def _restore_depth_at_portal(self, portal, view, projection, stencil_ref):
+    def _restore_depth_at_portal(self, stencil_ref):
         """
         Write the portal quad's real depth inside stencil==stencil_ref so the
         next sibling portal at this depth sees a consistent depth buffer.
@@ -128,21 +143,14 @@ class PortalRenderer:
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_ALWAYS)
-        self.stencil_shader.use()
-        self._draw_quad(portal, view, projection)
+        Portal.mesh_quad.draw()
         glDepthFunc(GL_LESS)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
 
     # ── Drawing primitives ────────────────────────────────────────────────────
 
-    def _draw_quad(self, portal, view, projection):
-        self.stencil_shader.set_matrix4("view", view)
-        self.stencil_shader.set_matrix4("projection", projection)
-        self.stencil_shader.set_matrix4("model", portal.get_model_matrix())
-        Portal.mesh_quad.draw()
-
-    def _draw_scene(self, view, projection, light_pos, light_color, stencil_ref):
-        cam_pos = self._camera_position(view)
+    def _draw_scene(self, view, projection, light_pos, light_color,
+                    stencil_ref, cam_pos):
         glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
         self.scene_shader.use()
@@ -152,8 +160,3 @@ class PortalRenderer:
         self.scene_shader.set_vec3("lightColor", light_color)
         self.scene_shader.set_vec3("cameraPos", cam_pos)
         self.scene.draw(self.scene_shader)
-
-    @staticmethod
-    def _camera_position(view):
-        """Extract the world-space camera position from a view matrix."""
-        return np.linalg.inv(view)[3, :3]

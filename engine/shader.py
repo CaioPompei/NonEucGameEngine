@@ -11,6 +11,10 @@ class Shader:
 
     def __init__(self, vertex_src, fragment_src):
         self._programa = self._create_program(vertex_src, fragment_src)
+        # glGetUniformLocation is a driver-side string lookup; calling it
+        # once per uniform per draw adds up fast under recursive portal
+        # rendering. Cache locations on first use.
+        self._uniform_locations: dict[str, int] = {}
 
     @classmethod
     def from_files(cls, vertex_path, fragment_path) -> "Shader":
@@ -25,18 +29,22 @@ class Shader:
         """Ativa este shader para os próximos draw calls."""
         glUseProgram(self._programa)
 
+    def _location(self, name):
+        loc = self._uniform_locations.get(name)
+        if loc is None:
+            loc = glGetUniformLocation(self._programa, name)
+            self._uniform_locations[name] = loc
+        return loc
+
     def set_matrix4(self, name, matrix):
         """Envia uma matriz 4x4 para um uniform do shader."""
-        loc = glGetUniformLocation(self._programa, name)
-        glUniformMatrix4fv(loc, 1, GL_FALSE, matrix)
+        glUniformMatrix4fv(self._location(name), 1, GL_FALSE, matrix)
 
     def set_float(self, name, value):
-        loc = glGetUniformLocation(self._programa, name)
-        glUniform1f(loc, value)
+        glUniform1f(self._location(name), value)
 
     def set_vec3(self, name, vector):
-        loc = glGetUniformLocation(self._programa, name)
-        glUniform3f(loc, *vector)
+        glUniform3f(self._location(name), *vector)
 
     # ── Internos ─────────────────────────────────────────────────────────
 
