@@ -44,17 +44,15 @@ class PortalRenderer:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def render(self, view, projection, light_pos, light_color, cam_pos):
+    def render(self, view, projection, cam_pos):
         glEnable(GL_STENCIL_TEST)
         glClear(GL_STENCIL_BUFFER_BIT)
-        self._render_recursive(view, projection, light_pos, light_color,
-                               depth=0, cam_pos=cam_pos)
+        self._render_recursive(view, projection, depth=0, cam_pos=cam_pos)
         glDisable(GL_STENCIL_TEST)
 
     # ── Recursive core ────────────────────────────────────────────────────────
 
-    def _render_recursive(self, view, projection, light_pos, light_color,
-                          depth, cam_pos):
+    def _render_recursive(self, view, projection, depth, cam_pos):
         for portal in self.portals:
             if portal.destiny is None:
                 continue
@@ -73,12 +71,10 @@ class PortalRenderer:
             # One matrix inverse per recursion level, instead of several.
             new_cam_pos = np.linalg.inv(new_view)[3, :3]
 
-            self._draw_scene(new_view, new_proj, light_pos, light_color,
-                             depth + 1, new_cam_pos)
+            self._draw_scene(new_view, new_proj, depth + 1, new_cam_pos)
 
             if depth + 1 < self.max_depth:
                 self._render_recursive(new_view, new_proj,
-                                       light_pos, light_color,
                                        depth + 1, new_cam_pos)
 
             # _draw_scene and the recursion switched programs and uniforms;
@@ -149,14 +145,13 @@ class PortalRenderer:
 
     # ── Drawing primitives ────────────────────────────────────────────────────
 
-    def _draw_scene(self, view, projection, light_pos, light_color,
-                    stencil_ref, cam_pos):
+    def _draw_scene(self, view, projection, stencil_ref, cam_pos):
         glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
         self.scene_shader.use()
         self.scene_shader.set_matrix4("view", view)
         self.scene_shader.set_matrix4("projection", projection)
-        self.scene_shader.set_vec3("lightPos", light_pos)
-        self.scene_shader.set_vec3("lightColor", light_color)
         self.scene_shader.set_vec3("cameraPos", cam_pos)
+        # Lights + shadow cubemaps are bound once per frame in main.py and
+        # remain on their texture units; no re-bind needed per recursion.
         self.scene.draw(self.scene_shader)

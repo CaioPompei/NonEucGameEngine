@@ -23,7 +23,7 @@ def create_room(width=30.0, height=6.0, depth=30.0) -> Scene:
     # Back wall
     scene.add_entity(Entity(cube, position=(0.0, 0.0, D), scale=(W*2, H*2, T), color=(0.5, 0.6, 0.7)))
     # Left wall — slightly different tone
-    scene.add_entity(Entity(cube, position=(-W, 0.0, 0.0), scale=(T, H*2, D*2), color=(0.6, 0.5, 0.5)))
+    #scene.add_entity(Entity(cube, position=(-W, 0.0, 0.0), scale=(T, H*2, D*2), color=(0.6, 0.5, 0.5)))
     # Right wall
     scene.add_entity(Entity(cube, position=(W, 0.0, 0.0), scale=(T, H*2, D*2), color=(0.6, 0.5, 0.5)))
     # Divider wall Left - red
@@ -36,7 +36,7 @@ def create_room(width=30.0, height=6.0, depth=30.0) -> Scene:
     scene.add_entity(Entity(cube, position=(W/1.371, 0, 0), scale=(D/1.5, H*2, T), color=(0.7, 0.3, 0.3)))
 
     # Central Pillar - green
-    scene.add_entity(Entity(cube, position=(0, -H/2, 0), scale=(1, H*3, 1), color=(0.3, 0.7, 0.3)))
+    scene.add_entity(Entity(cube, position=(0, -H/2, 0), scale=(1, H*2, 1), color=(0.3, 0.7, 0.3)))
 
 
     return scene

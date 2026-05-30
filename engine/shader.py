@@ -46,6 +46,9 @@ class Shader:
     def set_vec3(self, name, vector):
         glUniform3f(self._location(name), *vector)
 
+    def set_int(self, name, value):
+        glUniform1i(self._location(name), int(value))
+
     # ── Internos ─────────────────────────────────────────────────────────
 
     def _compile(self, source, shader_type):

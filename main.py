@@ -5,6 +5,7 @@ import numpy as np
 import pyrr
 
 from engine.camera import Camera
+from engine.light import PointLight
 from engine.shader import Shader
 from engine.text_overlay import TextOverlay
 from engine.window import Window
@@ -31,8 +32,18 @@ def main():
                                      SHADERS_DIR / "phong.frag")
     simple_shader = Shader.from_files(SHADERS_DIR / "simple.vert",
                                       SHADERS_DIR / "simple.frag")
+    depth_shader = Shader.from_files(SHADERS_DIR / "depth.vert",
+                                     SHADERS_DIR / "depth.frag")
 
     scene = create_room()
+
+    # Lights: instantiate, add to scene, bake once. Cena + luzes estáticas
+    # → o custo das shadow maps cai pra zero por frame depois do bake.
+    scene.add_light(PointLight(position=(0.0, 4.0, 0.0),
+                               color=(1.0, 1.0, 1.0),
+                               intensity=1.0,
+                               range=35.0))
+    scene.bake_shadows(depth_shader)
 
     debug_overlay = TextOverlay("debug mode", WINDOW_WIDTH, WINDOW_HEIGHT,
                                 font_size=22,
@@ -60,9 +71,6 @@ def main():
         90.0, WINDOW_WIDTH / WINDOW_HEIGHT, 0.01, 100.0, np.float32
     )
 
-    light_pos = np.array([0.0, 4.0, 0.0], dtype=np.float32)
-    light_color = np.array([1.0, 1.0, 1.0], dtype=np.float32)
-
     previous_time = glfw.get_time()
 
     while not window.window_close():
@@ -79,13 +87,11 @@ def main():
         phong_shader.use()
         phong_shader.set_matrix4("view", view)
         phong_shader.set_matrix4("projection", projection)
-        phong_shader.set_vec3("lightPos", light_pos)
-        phong_shader.set_vec3("lightColor", light_color)
         phong_shader.set_vec3("cameraPos", camera.position)
+        scene.bind_lights(phong_shader, first_texture_unit=1)
         scene.draw(phong_shader)
 
-        portal_renderer.render(view, projection, light_pos, light_color,
-                               camera.position)
+        portal_renderer.render(view, projection, camera.position)
 
         if player.mode == Player.MODE_FREECAM:
             debug_overlay.draw()
