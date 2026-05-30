@@ -82,6 +82,23 @@ class Camera:
         self.pitch = max(-89.0, min(89.0, self.pitch))  # Limit pitch to prevent gimbal lock
         self.update_vectors()
 
+    def set_orientation_from_front(self, front):
+        """
+        Reconstrói yaw/pitch a partir de um vetor front (após uma travessia
+        de portal, p.ex.). Inverte a fórmula usada em `update_vectors`:
+            front = (cos(yaw)cos(pitch), sin(pitch), sin(yaw)cos(pitch))
+        """
+        f = np.asarray(front, dtype=np.float32)
+        n = float(np.linalg.norm(f))
+        if n < 1e-6:
+            return
+        f = f / n
+        pitch_r = math.asin(max(-1.0, min(1.0, float(f[1]))))
+        yaw_r = math.atan2(float(f[2]), float(f[0]))
+        self.pitch = math.degrees(pitch_r)
+        self.yaw = math.degrees(yaw_r)
+        self.update_vectors()
+
     def get_view_matrix(self):
         """Returns the current view matrix to send to the shader"""
         # Put eye, target and up vectors here

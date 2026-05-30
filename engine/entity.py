@@ -1,6 +1,6 @@
 import numpy as np
 import pyrr
-from core.mesh import Mesh
+from engine.mesh import Mesh
 
 class Entity:
     """

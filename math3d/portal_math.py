@@ -47,8 +47,54 @@ def calculate_virtual_view(real_view: np.ndarray,
         V_virtual = inv(M_destino) @ FlipY180 @ M_origem @ V_real
     """
     inv_destiny = np.linalg.inv(destiny_transform)
-    virtual_view = inv_destiny @ _FLIP_Y_180 @ origin_transform @ real_view
-    return virtual_view.astype(np.float32)
+    return calculate_virtual_view_cached(real_view, origin_transform, inv_destiny)
+
+
+def calculate_virtual_view_cached(real_view: np.ndarray,
+                                  origin_transform: np.ndarray,
+                                  inv_destiny_transform: np.ndarray) -> np.ndarray:
+    """
+    Mesma fórmula de `calculate_virtual_view`, mas aceita a inversa do
+    destiny pré-calculada. Útil quando o portal é estático e a inversa
+    pode ser cacheada (evita `np.linalg.inv` por frame, ainda mais
+    importante quando o renderer recursa até `max_depth`).
+    """
+    return (inv_destiny_transform @ _FLIP_Y_180
+            @ origin_transform @ real_view).astype(np.float32)
+
+
+def calculate_traversal_transform(origin_transform: np.ndarray,
+                                  destiny_transform: np.ndarray) -> np.ndarray:
+    """
+    Transform pyrr (row-vector) que leva um ponto/direção em world space do
+    lado FRONTAL do portal de origem para o ponto/direção análogo no lado
+    frontal do portal de destino, incluindo a rotação de 180° em Y exigida
+    pelo pareamento.
+
+    Derivação:
+        P_local_orig = P_world @ inv(M_orig)
+        P_local_dest = P_local_orig @ FlipY180
+        P_world_new  = P_local_dest @ M_dest
+      ⇒  T = inv(M_orig) @ FlipY180 @ M_dest
+
+    Aplicação:
+        p_new = (px, py, pz, 1) @ T   → pega os 3 primeiros componentes
+        d_new = (dx, dy, dz, 0) @ T   → ignora a translação
+    """
+    inv_origin = np.linalg.inv(origin_transform)
+    return (inv_origin @ _FLIP_Y_180 @ destiny_transform).astype(np.float32)
+
+
+def transform_point(transform: np.ndarray, point) -> np.ndarray:
+    """Aplica uma transform pyrr (row-vector) em um ponto 3D."""
+    p = np.array([point[0], point[1], point[2], 1.0], dtype=np.float32)
+    return (p @ transform)[:3].astype(np.float32)
+
+
+def transform_direction(transform: np.ndarray, direction) -> np.ndarray:
+    """Aplica a parte 3×3 de uma transform pyrr em um vetor direção."""
+    d = np.array([direction[0], direction[1], direction[2], 0.0], dtype=np.float32)
+    return (d @ transform)[:3].astype(np.float32)
 
 
 def plane_world_to_view(normal_world: np.ndarray,

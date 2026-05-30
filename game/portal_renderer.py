@@ -1,9 +1,9 @@
 import numpy as np
 from OpenGL.GL import *
 
-from core.portal import Portal
-from core.scene import Scene
-from core.shader import Shader
+from engine.scene import Scene
+from engine.shader import Shader
+from game.portal import Portal
 
 
 class PortalRenderer:

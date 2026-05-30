@@ -4,7 +4,7 @@ import numpy as np
 from OpenGL.GL import *
 from PIL import Image, ImageDraw, ImageFont
 
-from core.shader import Shader
+from engine.shader import Shader
 
 
 _VS = """

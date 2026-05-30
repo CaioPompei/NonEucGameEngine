@@ -1,5 +1,5 @@
 import numpy as np
-from core.mesh import Mesh
+from engine.mesh import Mesh
 
 def create_cube_mesh():
     """

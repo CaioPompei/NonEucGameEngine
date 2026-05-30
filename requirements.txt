@@ -1,0 +1,6 @@
+glfw==2.10.0
+numpy==2.4.4
+Pillow==12.2.0
+PyOpenGL==3.1.10
+PyOpenGL-accelerate==3.1.10
+pyrr==0.10.3

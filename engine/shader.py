@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from OpenGL.GL import *
 
 
@@ -9,6 +11,13 @@ class Shader:
 
     def __init__(self, vertex_src, fragment_src):
         self._programa = self._create_program(vertex_src, fragment_src)
+
+    @classmethod
+    def from_files(cls, vertex_path, fragment_path) -> "Shader":
+        """Load and compile a shader pair from GLSL files on disk."""
+        vert_src = Path(vertex_path).read_text(encoding="utf-8")
+        frag_src = Path(fragment_path).read_text(encoding="utf-8")
+        return cls(vert_src, frag_src)
 
     # ── Use ──────────────────────────────────────────────────────────────
 

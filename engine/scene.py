@@ -1,5 +1,5 @@
-from core.entity import Entity
-from core.shader import Shader
+from engine.entity import Entity
+from engine.shader import Shader
 
 class Scene:
     """

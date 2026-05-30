@@ -1,74 +1,59 @@
 # NonEucGameEngine
 
-A Python-based OpenGL learning engine focused on first-person camera movement, shader-driven rendering, and modular engine structure.
+A Python + OpenGL prototype exploring **non-Euclidean rendering** via stencil-buffer portals. Two portals open into the same room from different angles, and the renderer recurses through them so portals seen *inside* a portal also open up (up to a configurable depth).
 
-## Current Project Status
+## Features
 
-The project is in an **early prototype stage**.
-
-### Implemented
-
-- OpenGL 3.3 core-profile window creation via GLFW
-- Render loop with depth testing enabled
-- Shader compilation/linking pipeline (vertex + fragment shaders)
-- Basic mesh upload and rendering using VAO/VBO
-- Real-time camera with:
-  - Mouse look (yaw/pitch)
-  - WASD movement
-  - Vertical movement (Q/E)
-  - Frame-rate independent movement using `delta_time`
-- Perspective and view matrix updates every frame
-- Single 3D cube rendered in the scene
-
-### Not Implemented Yet
-
-- Scene graph / entity system
-- Multiple mesh loading (OBJ/GLTF)
-- Textures and materials
-- Lighting system
-- Physics/collision
-- UI/debug overlay
-- Build packaging and automated tests
+- OpenGL 3.3 core-profile window via GLFW, with stencil buffer enabled
+- Phong lighting (ambient + diffuse + specular) in a single closed room
+- **Paired stencil portals** with:
+  - Recursive rendering up to `max_depth`
+  - Virtual-camera view through the destination portal
+  - Oblique near-plane projection (Lengyel) to clip geometry between the virtual camera and the destination portal
+- Player with two modes:
+  - **WALK**: gravity, jump, horizontal movement on the XZ plane
+  - **FREECAM**: full 6-DOF camera (toggled with `V`)
+- Debug text overlay (shown in FREECAM mode)
+- External GLSL files loaded from `shaders/`
 
 ## Controls
 
-- `W` / `A` / `S` / `D`: Move
-- `Q` / `E`: Up / Down
-- Mouse: Look around
-- `ESC`: Exit
+| Key | Action |
+| --- | --- |
+| `W` / `A` / `S` / `D` | Move |
+| `Space` | Jump (WALK mode) |
+| `Q` / `E` | Up / Down (FREECAM mode) |
+| `Left Shift` | Sprint (2x speed) |
+| `V` | Toggle WALK / FREECAM |
+| Mouse | Look around |
+| `ESC` | Exit |
 
 ## Tech Stack
 
-- Python
-- PyOpenGL
+- Python 3.10+
+- PyOpenGL + PyOpenGL-accelerate
 - GLFW (Python bindings)
 - NumPy
 - Pyrr
-
-## Requirements
-
-- Python 3.10+
-- GPU/driver support for OpenGL 3.3+
-- On Windows, up-to-date graphics drivers are recommended
+- Pillow (text overlay rasterization)
 
 ## Setup
 
-1. Create and activate a virtual environment (recommended):
+```powershell
+# Windows PowerShell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
-   **Windows PowerShell**
+```bash
+# macOS / Linux
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-   ```powershell
-   python -m venv .venv
-   .venv\Scripts\Activate.ps1
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pip install glfw PyOpenGL numpy pyrr
-   ```
-
-## How To Run
+## Run
 
 From the project root:
 
@@ -76,37 +61,41 @@ From the project root:
 python main.py
 ```
 
-If everything is configured correctly, a window titled **"What is There?"** opens and displays a 3D cube.
+A window titled **"What is There?"** opens. Walk toward either portal and look through.
 
 ## Project Layout
 
 ```text
 NonEucGameEngine/
-├─ main.py
-└─ core/
-   ├─ __init__.py
-   ├─ window.py
-   ├─ camera.py
-   ├─ shader.py
-   └─ mesh.py
+├─ main.py                  # Bootstrap, render loop, scene assembly
+├─ requirements.txt
+├─ README.md
+├─ engine/                  # Generic, game-agnostic engine
+│  ├─ window.py             # GLFW window + GL context lifecycle
+│  ├─ shader.py             # GLSL compile/link + uniform helpers
+│  ├─ mesh.py               # VAO/VBO upload + draw
+│  ├─ primitives.py         # Built-in geometry (cube)
+│  ├─ entity.py             # Transform + mesh wrapper
+│  ├─ scene.py              # Entity list + bulk draw
+│  ├─ camera.py             # FPS camera (yaw/pitch + WASDQE)
+│  └─ text_overlay.py       # 2D textured-quad text via Pillow
+├─ game/                    # Gameplay specific to this prototype
+│  ├─ level.py              # Room geometry composition
+│  ├─ player.py             # WALK/FREECAM, gravity, jump
+│  ├─ portal.py             # Portal entity (quad, transform, normal)
+│  └─ portal_renderer.py    # Recursive stencil-portal renderer
+├─ math3d/
+│  └─ portal_math.py        # Virtual view + oblique near plane
+├─ shaders/
+│  ├─ phong.vert / phong.frag
+│  └─ simple.vert / simple.frag
+└─ Docs/
+   ├─ ARCHITECTURE.md
+   └─ *.pdf                 # Academic deliverables
 ```
 
-## Module Responsibilities
+See [Docs/ARCHITECTURE.md](Docs/ARCHITECTURE.md) for the module-by-module responsibilities and the stencil-portal algorithm.
 
-- `core/window.py`: GLFW window/context lifecycle and frame operations
-- `core/camera.py`: Camera transforms and keyboard/mouse input logic
-- `core/shader.py`: GLSL compile/link and uniform upload helpers
-- `core/mesh.py`: GPU buffer setup and geometry draw call
-- `main.py`: Engine bootstrap, render loop, and scene setup
+## References
 
-## Known Notes
-
-- Mouse is captured on startup (`CURSOR_DISABLED`) for FPS-style control.
-- This prototype currently uses hardcoded cube vertex data in `main.py`.
-
-## Suggested Next Milestones
-
-1. Introduce a reusable `Transform` + entity abstraction.
-2. Add indexed meshes (EBO) and model loading.
-3. Add basic directional light + normals.
-4. Add a `requirements.txt` and simple smoke test for startup.
+- Lengyel, E. (2005). *Oblique View Frustum Depth Projection and Clipping.* Journal of Game Development, 1(2), 5–16.

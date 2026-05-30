@@ -1,8 +1,7 @@
 import numpy as np
-from core.mesh import Mesh
-from core.entity import Entity
-from core.scene import Scene
-from game.meshes import create_cube_mesh
+from engine.entity import Entity
+from engine.primitives import create_cube_mesh
+from engine.scene import Scene
 
 
 def create_room(width=30.0, height=6.0, depth=30.0) -> Scene:
