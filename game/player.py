@@ -88,7 +88,7 @@ class Player:
     def _walk_input(self, window, delta_time):
         speed = self.move_speed * delta_time
         if glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS:
-            speed *= 2
+            speed *= 2.5
 
         # Horizontal movement only: project camera vectors onto XZ plane
         front = self.camera.front.copy()

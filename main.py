@@ -5,16 +5,16 @@ import numpy as np
 import pyrr
 
 from engine.camera import Camera
-from engine.light import PointLight
 from engine.shader import Shader
 from engine.text_overlay import TextOverlay
 from engine.window import Window
-from game.level import create_room
+from game.level_loader import LevelLoader
 from game.player import Player
-from game.portal import Portal
 from game.portal_renderer import PortalRenderer
 
-SHADERS_DIR = Path(__file__).resolve().parent / "shaders"
+PROJECT_ROOT = Path(__file__).resolve().parent
+SHADERS_DIR = PROJECT_ROOT / "shaders"
+LEVELS_DIR = PROJECT_ROOT / "levels"
 
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 720
@@ -22,7 +22,7 @@ WINDOW_HEIGHT = 720
 
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "What is There?")
-    camera = Camera(position=(0.0, 0.5, 3.0))
+    camera = Camera(position=(0.0, 0.3, 3.0))
     player = Player(camera)
 
     window.get_mouse()
@@ -35,29 +35,28 @@ def main():
     depth_shader = Shader.from_files(SHADERS_DIR / "depth.vert",
                                      SHADERS_DIR / "depth.frag")
 
-    scene = create_room()
+    loader = LevelLoader()
+    level = loader.load(LEVELS_DIR / "level_01.json")
 
-    # Lights: instantiate, add to scene, bake once. Cena + luzes estáticas
-    # → o custo das shadow maps cai pra zero por frame depois do bake.
-    scene.add_light(PointLight(position=(0.0, 4.0, 0.0),
-                               color=(1.0, 1.0, 1.0),
-                               intensity=1.0,
-                               range=35.0))
-    scene.bake_shadows(depth_shader)
+    camera.position[:] = level.player_start
+    level.scene.bake_shadows(depth_shader)
 
-    debug_overlay = TextOverlay("debug mode", WINDOW_WIDTH, WINDOW_HEIGHT,
-                                font_size=22,
-                                color=(255, 230, 80, 255))
+    # "debug mode" label — fixed text, shown only while in FREECAM (toggle V).
+    debug_label_overlay = TextOverlay(
+        "debug mode", WINDOW_WIDTH, WINDOW_HEIGHT,
+        font_size=20, color=(255, 230, 80, 255),
+        padding=10, margin_px=20, corner="top-left")
 
-    # Portal A on the north wall, Portal B on the south wall — paired.
-    portal_a = Portal(position=(0.0, 0.0, -9.7), rotation=0.0, color=(1.0, 0.5, 0.5))
-    portal_b = Portal(position=(0.0, 0.0, 9.7), rotation=180.0, color=(0.2, 0.5, 1.0))
-    portal_a.link_to(portal_b)
-    portals = [portal_a, portal_b]
+    # Stats panel — fps + position + orientation. Toggled with `´`
+    # (KEY_LEFT_BRACKET in BR-ABNT2 layouts). Updates dynamically.
+    stats_overlay = TextOverlay(
+        "", WINDOW_WIDTH, WINDOW_HEIGHT,
+        font_size=18, color=(180, 255, 180, 255),
+        padding=10, margin_px=20, corner="top-right")
 
     portal_renderer = PortalRenderer(
-        portals=portals,
-        scene=scene,
+        portals=level.portals,
+        scene=level.scene,
         scene_shader=phong_shader,
         stencil_shader=simple_shader,
         max_depth=3,
@@ -72,14 +71,46 @@ def main():
     )
 
     previous_time = glfw.get_time()
+    stats_next_update = 0.0
+    STATS_UPDATE_INTERVAL = 0.1  # 10 Hz is plenty for the readout
+
+    # FPS counter: accumulate frames over a window so the readout is stable.
+    fps_count = 0
+    fps_time_acc = 0.0
+    fps_display = 0.0
+    FPS_WINDOW = 0.25  # seconds
+
+    # Stats panel toggle (edge-triggered on `´` / KEY_LEFT_BRACKET).
+    show_stats = False
+    stats_key_was_pressed = False
 
     while not window.window_close():
         real_time = glfw.get_time()
         delta_time = real_time - previous_time
         previous_time = real_time
 
+        fps_count += 1
+        fps_time_acc += delta_time
+        if fps_time_acc >= FPS_WINDOW:
+            fps_display = fps_count / fps_time_acc
+            fps_count = 0
+            fps_time_acc = 0.0
+
         window.process_events()
-        player.process_input(window.get_handle(), delta_time, portals)
+        player.process_input(window.get_handle(), delta_time, level.portals)
+
+        # Edge-triggered toggle for the stats panel (`´` in BR-ABNT2).
+        stats_key_now = glfw.get_key(window.get_handle(),
+                                     glfw.KEY_LEFT_BRACKET) == glfw.PRESS
+        if stats_key_now and not stats_key_was_pressed:
+            show_stats = not show_stats
+        stats_key_was_pressed = stats_key_now
+
+        for trigger in level.triggers:
+            event = trigger.check(camera.position)
+            if event is not None:
+                level.puzzle.dispatch(event)
+
         view = camera.get_view_matrix()
 
         window.clear()
@@ -88,13 +119,32 @@ def main():
         phong_shader.set_matrix4("view", view)
         phong_shader.set_matrix4("projection", projection)
         phong_shader.set_vec3("cameraPos", camera.position)
-        scene.bind_lights(phong_shader, first_texture_unit=1)
-        scene.draw(phong_shader)
+        level.scene.bind_lights(phong_shader, first_texture_unit=1)
+        level.scene.draw(phong_shader)
 
         portal_renderer.render(view, projection, camera.position)
 
+        # "debug mode" label — only while FREECAM is active.
         if player.mode == Player.MODE_FREECAM:
-            debug_overlay.draw()
+            debug_label_overlay.draw()
+
+        # Stats panel — independent toggle (`´`).
+        if show_stats:
+            if real_time >= stats_next_update:
+                x, y, z = camera.position
+                mode_label = ("FREECAM" if player.mode == Player.MODE_FREECAM
+                              else "WALK")
+                stats_overlay.update_text(
+                    f"fps    {fps_display:6.1f}\n"
+                    f"mode   {mode_label}\n"
+                    f"x      {x:7.2f}\n"
+                    f"y      {y:7.2f}\n"
+                    f"z      {z:7.2f}\n"
+                    f"yaw    {camera.yaw:7.1f}\n"
+                    f"pitch  {camera.pitch:7.1f}"
+                )
+                stats_next_update = real_time + STATS_UPDATE_INTERVAL
+            stats_overlay.draw()
 
         window.show()
 
