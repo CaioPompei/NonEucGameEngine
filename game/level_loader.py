@@ -15,8 +15,10 @@ sensible defaults so partial JSONs still load):
                 "position": [x, y, z],
                 "rotation": [x, y, z],              # Euler degrees
                 "scale": [x, y, z],
-                "color": [r, g, b],
-                "solid": false                      # collision flag (future)
+                "color": [r, g, b],                 # tint (multiplies texture)
+                "solid": true,                      # player collision (default true)
+                "texture": "textures/wall.png",     # optional, path from repo root
+                "texture_scale": [u, v]             # optional UV tiling (default 1,1)
             }, ...
         ],
 
@@ -35,10 +37,14 @@ sensible defaults so partial JSONs still load):
         "portals": [
             {
                 "id": "A",
-                "linked_to": "B",                   # id of paired portal
+                "linked_to": "B",                   # destination id; "" / omit
+                                                    # = inert exit (no teleport).
+                                                    # one-directional: set on
+                                                    # both ids for a two-way pair
                 "position": [x, y, z],
                 "rotation": 0.0,                    # Y-axis degrees
-                "color": [r, g, b]
+                "color": [r, g, b],
+                "scale": [width, height]            # optional opening size
             }, ...
         ],
 
@@ -65,16 +71,25 @@ from pathlib import Path
 from engine.entity import Entity
 from engine.light import PointLight
 from engine.scene import Scene
+from engine.texture import TextureRegistry
 from game.level import Level
 from game.mesh_registry import MeshRegistry
 from game.portal import Portal
 from game.puzzle import PuzzleManager
 from game.trigger import Trigger
 
+# Repo root: texture paths in level JSON are resolved relative to this
+# (game/ -> project root), unless the path is already absolute.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 class LevelLoader:
-    def __init__(self, mesh_registry: MeshRegistry | None = None):
+    def __init__(self,
+                 mesh_registry: MeshRegistry | None = None,
+                 texture_registry: TextureRegistry | None = None):
         self.mesh_registry = mesh_registry or MeshRegistry()
+        # Cached across levels so a shared texture is uploaded only once.
+        self.texture_registry = texture_registry or TextureRegistry()
 
     def load(self, path: str | Path) -> Level:
         path = Path(path)
@@ -122,7 +137,23 @@ class LevelLoader:
             rotation=tuple(e.get("rotation", (0.0, 0.0, 0.0))),
             scale=tuple(e.get("scale", (1.0, 1.0, 1.0))),
             color=tuple(e.get("color", (1.0, 1.0, 1.0))),
+            solid=bool(e.get("solid", True)),
+            texture=self._load_texture(e.get("texture"), source),
+            texture_scale=tuple(e.get("texture_scale", (1.0, 1.0))),
         )
+
+    def _load_texture(self, rel_path, source: Path):
+        """Resolve a texture path (relative to repo root) and load it, or
+        return None when the entity declares no texture."""
+        if not rel_path:
+            return None
+        path = Path(rel_path)
+        if not path.is_absolute():
+            path = _PROJECT_ROOT / path
+        if not path.exists():
+            raise FileNotFoundError(
+                f"{source}: texture not found: {path}")
+        return self.texture_registry.get(path)
 
     def _build_light(self, l: dict, source: Path) -> PointLight:
         light_type = l.get("type", "point")
@@ -171,27 +202,28 @@ class LevelLoader:
                 position=tuple(p.get("position", (0.0, 0.0, 0.0))),
                 rotation=float(p.get("rotation", 0.0)),
                 color=tuple(p.get("color", (1.0, 1.0, 1.0))),
+                scale=p.get("scale"),  # None -> Portal's default opening size
             )
             if p["id"] in by_id:
                 raise ValueError(f"{source}: duplicate portal id '{p['id']}'")
             by_id[p["id"]] = portal
             portals.append(portal)
 
-        # Portal.link_to is bidirectional. Track linked ids so a JSON that
-        # declares both A→B and B→A doesn't call link_to twice.
-        linked: set[frozenset[str]] = set()
+        # Links are one-directional: each portal independently points at its
+        # destination. Declare `linked_to` on both portals for a two-way pair,
+        # or on just one for a one-way portal (the other is an inert exit).
+        # An empty / null / missing `linked_to` means "no destination".
         for p in portal_list:
             target = p.get("linked_to")
-            if target is None:
+            if not target:  # None or "" -> inert exit, no teleport, no view
                 continue
+            if target == p["id"]:
+                raise ValueError(
+                    f"{source}: portal '{p['id']}' links to itself")
             if target not in by_id:
                 raise ValueError(
                     f"{source}: portal '{p['id']}' links to unknown id "
                     f"'{target}'")
-            pair = frozenset((p["id"], target))
-            if pair in linked:
-                continue
-            by_id[p["id"]].link_to(by_id[target])
-            linked.add(pair)
+            by_id[p["id"]].set_destination(by_id[target])
 
         return portals, by_id

@@ -1,0 +1,118 @@
+{
+    "name": "Fase 02 — Eco",
+    "player_start": [0.0, 0.5, 0.0],
+    "ambient_color": [0.04, 0.05, 0.06],
+
+    "lights": [
+        {
+            "type": "point",
+            "position": [0.0, 4.0, 0.0],
+            "color": [0.5, 0.7, 1.0],
+            "intensity": 2.0,
+            "range": 40.0,
+            "cast_shadows": true,
+            "shadow_resolution": 1024
+        },
+        {
+            "type": "point",
+            "position": [20.0, 4.0, 20.0],
+            "color": [1.0, 0.65, 0.25],
+            "intensity": 3.5,
+            "range": 35.0,
+            "cast_shadows": true,
+            "shadow_resolution": 1024
+        }
+    ],
+
+    "entities": [
+        {
+            "_comment": "Floor",
+            "mesh": "cube",
+            "position": [0.0, -6.0, 0.0],
+            "scale": [60.0, 0.25, 60.0],
+            "color": [0.35, 0.33, 0.3]
+        },
+        {
+            "_comment": "Ceiling",
+            "mesh": "cube",
+            "position": [0.0, 6.0, 0.0],
+            "scale": [60.0, 0.25, 60.0],
+            "color": [0.7, 0.7, 0.72]
+        },
+        {
+            "_comment": "Front wall",
+            "mesh": "cube",
+            "position": [0.0, 0.0, -30.0],
+            "scale": [60.0, 12.0, 0.25],
+            "color": [0.7, 0.45, 0.3]
+        },
+        {
+            "_comment": "Back wall",
+            "mesh": "cube",
+            "position": [0.0, 0.0, 30.0],
+            "scale": [60.0, 12.0, 0.25],
+            "color": [0.7, 0.45, 0.3]
+        },
+        {
+            "_comment": "Right wall",
+            "mesh": "cube",
+            "position": [30.0, 0.0, 0.0],
+            "scale": [0.25, 12.0, 60.0],
+            "color": [0.6, 0.4, 0.35]
+        },
+        {
+            "_comment": "Left wall",
+            "mesh": "cube",
+            "position": [-30.0, 0.0, 0.0],
+            "scale": [0.25, 12.0, 60.0],
+            "color": [0.6, 0.4, 0.35]
+        },
+        {
+            "_comment": "Pillar A (obstacle to test collision/slide)",
+            "mesh": "cube",
+            "position": [8.0, -3.0, 8.0],
+            "scale": [1.5, 12.0, 1.5],
+            "color": [0.3, 0.6, 0.7]
+        },
+        {
+            "_comment": "Pillar B",
+            "mesh": "cube",
+            "position": [-9.0, -3.0, 6.0],
+            "scale": [1.5, 12.0, 1.5],
+            "color": [0.3, 0.6, 0.7]
+        },
+        {
+            "_comment": "Goal pedestal — sits under the win zone",
+            "mesh": "cube",
+            "position": [20.0, -5.5, 20.0],
+            "scale": [4.0, 1.0, 4.0],
+            "color": [0.9, 0.75, 0.3]
+        }
+    ],
+
+    "portals": [
+        {
+            "id": "A",
+            "linked_to": "B",
+            "position": [0.0, 0.0, -9.7],
+            "rotation": 0.0,
+            "color": [0.4, 0.8, 1.0]
+        },
+        {
+            "id": "B",
+            "linked_to": "A",
+            "position": [0.0, 0.0, 9.7],
+            "rotation": 180.0,
+            "color": [1.0, 0.6, 0.3]
+        }
+    ],
+
+    "_triggers_comment": "Level-switch zones disabled for now. Re-add a trigger with on_enter == puzzle.completion_event to re-enable the transition to next_level.",
+    "triggers": [],
+
+    "puzzle": {
+        "objective": "Chegue ao pedestal dourado no canto para voltar à fase 01.",
+        "completion_event": "complete_puzzle",
+        "next_level": "level_test01.json"
+    }
+}

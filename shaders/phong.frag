@@ -7,6 +7,7 @@
 
 in vec3 frag_pos;
 in vec3 frag_normal;
+in vec2 frag_uv;
 
 out vec4 fragColor;
 
@@ -26,6 +27,13 @@ uniform int numLights;
 uniform vec3 cameraPos;
 uniform vec3 objectColor;
 uniform vec3 ambientColor;  // global ambient term (e.g. vec3(0.05))
+
+// Optional diffuse texture. When useTexture == 1, the sampled color is
+// multiplied by objectColor (so objectColor acts as a tint; set it white
+// for the raw texture). uvScale tiles the texture across the surface.
+uniform sampler2D diffuseTexture;
+uniform int useTexture;
+uniform vec2 uvScale;
 
 // 9 offset directions for cubemap PCF. Combined with the disk-radius
 // scaling below, this gives "3x3"-style soft shadow edges around the
@@ -96,5 +104,10 @@ void main() {
     if (2 < numLights) lighting += compute_point_light(pointLights[2], shadowMaps[2], normal, view_dir);
     if (3 < numLights) lighting += compute_point_light(pointLights[3], shadowMaps[3], normal, view_dir);
 
-    fragColor = vec4(lighting * objectColor, 1.0);
+    vec3 base = objectColor;
+    if (useTexture == 1) {
+        base *= texture(diffuseTexture, frag_uv * uvScale).rgb;
+    }
+
+    fragColor = vec4(lighting * base, 1.0);
 }

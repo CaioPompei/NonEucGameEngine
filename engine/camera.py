@@ -27,6 +27,11 @@ class Camera:
         self.right = np.array([1.0, 0.0, 0.0], dtype=np.float32)
         self.up    = np.array([0.0, 1.0, 0.0], dtype=np.float32)
 
+        # Visual-only eye offset (e.g. head bob). Added when building the view
+        # matrix but NOT part of `position`, so physics, collision and portal
+        # traversal keep using the true eye position.
+        self.view_offset = np.zeros(3, dtype=np.float32)
+
         # Mouse tracking
         self.last_x = 0.0
         self.last_y = 0.0
@@ -101,10 +106,12 @@ class Camera:
 
     def get_view_matrix(self):
         """Returns the current view matrix to send to the shader"""
-        # Put eye, target and up vectors here
+        # Eye includes the visual-only view_offset (head bob); target tracks it
+        # so the look direction is unchanged.
+        eye = self.position + self.view_offset
         return pyrr.matrix44.create_look_at(
-            eye=self.position,
-            target=self.position + self.front,
+            eye=eye,
+            target=eye + self.front,
             up=self.up,
             dtype=np.float32
         )

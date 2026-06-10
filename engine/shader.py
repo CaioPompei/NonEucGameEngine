@@ -43,6 +43,9 @@ class Shader:
     def set_float(self, name, value):
         glUniform1f(self._location(name), value)
 
+    def set_vec2(self, name, vector):
+        glUniform2f(self._location(name), *vector)
+
     def set_vec3(self, name, vector):
         glUniform3f(self._location(name), *vector)
 

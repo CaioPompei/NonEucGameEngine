@@ -42,13 +42,15 @@ class TextOverlay:
 
     def __init__(self, text, window_width, window_height,
                  font_size=16, color=(255, 255, 255, 255),
-                 padding=10, margin_px=12, corner="top-left"):
+                 padding=10, margin_px=12, corner="top-left",
+                 background=(0, 0, 0, 160)):
         self._shader = Shader(_VS, _FS)
         self._window_size = (window_width, window_height)
         self._color = color
         self._padding = padding
         self._margin_px = margin_px
         self._corner = corner
+        self._background = background
 
         try:
             self._font = ImageFont.truetype("arial.ttf", font_size)
@@ -104,7 +106,7 @@ class TextOverlay:
         img_w = text_w + self._padding * 2
         img_h = text_h + self._padding * 2
 
-        image = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 160))
+        image = Image.new("RGBA", (img_w, img_h), self._background)
         draw = ImageDraw.Draw(image)
         draw.text((self._padding - bbox[0], self._padding - bbox[1]), text,
                   font=self._font, fill=self._color)
@@ -135,7 +137,10 @@ class TextOverlay:
         mx = 2.0 * margin_px / win_w
         my = 2.0 * margin_px / win_h
 
-        if corner == "top-left":
+        if corner == "center":
+            x0, x1 = -w * 0.5, w * 0.5
+            y0, y1 = -h * 0.5, h * 0.5
+        elif corner == "top-left":
             x0, y1 = -1.0 + mx, 1.0 - my
             x1, y0 = x0 + w, y1 - h
         elif corner == "top-right":

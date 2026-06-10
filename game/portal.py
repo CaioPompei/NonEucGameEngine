@@ -33,10 +33,26 @@ def create_portal_mesh() -> Mesh:
     return Mesh(vertices, True)
 
 
-_PORTAL_SCALE = np.array([12.0, 5.0, 5.0], dtype=np.float32)
+DEFAULT_PORTAL_SCALE = np.array([12.0, 5.0, 5.0], dtype=np.float32)
 # Half extents of the source mesh (before scaling): X in [-0.5, 0.5], Y in [-1, 1].
 _MESH_HALF_X = 0.5
 _MESH_HALF_Y = 1.0
+
+
+def _normalize_scale(scale) -> np.ndarray:
+    """Accept None / 2- / 3-component scale and return a float32 (x, y, z).
+
+    The quad lies on Z=0, so the Z component is cosmetic (it never changes
+    geometry); it defaults to 1.0 when a 2-component [width, height] is given.
+    """
+    if scale is None:
+        return DEFAULT_PORTAL_SCALE.copy()
+    s = np.asarray(scale, dtype=np.float32).ravel()
+    if s.size == 2:
+        s = np.array([s[0], s[1], 1.0], dtype=np.float32)
+    elif s.size != 3:
+        raise ValueError(f"portal scale must have 2 or 3 components, got {s.size}")
+    return s
 
 
 class Portal:
@@ -58,15 +74,19 @@ class Portal:
 
     mesh_quad: Mesh = None  # Shared mesh for all portals.
 
-    def __init__(self, position, rotation, color):
+    def __init__(self, position, rotation, color, scale=None):
         """
             position: (x, y, z) world coordinates of the portal center
             rotation: degrees - Where the portal is facing (around Y)
             color:    RGB color (0..1) for debug/border drawing
+            scale:    (width, height[, z]) of the portal opening. Defaults to
+                      DEFAULT_PORTAL_SCALE. The quad is flat on Z, so only the
+                      first two components affect geometry / the opening test.
         """
         self.position = np.array(position, dtype=np.float32)
         self.rotation = float(rotation)
         self.color = np.array(color, dtype=np.float32)
+        self.scale = _normalize_scale(scale)
         self.destiny: 'Portal' = None
 
         # --- static caches (portal never moves after construction) ---
@@ -76,8 +96,8 @@ class Portal:
             self._portal_transform).astype(np.float32)
         self._model_matrix = self._compute_model_matrix()
         self._half_extents = np.array(
-            [_MESH_HALF_X * _PORTAL_SCALE[0],
-             _MESH_HALF_Y * _PORTAL_SCALE[1]],
+            [_MESH_HALF_X * self.scale[0],
+             _MESH_HALF_Y * self.scale[1]],
             dtype=np.float32,
         )
         # cos/sin of -rotation: rotates a world-space delta into portal-local XY.
@@ -103,7 +123,7 @@ class Portal:
         T = pyrr.matrix44.create_from_translation(self.position, dtype=np.float32)
         R = pyrr.matrix44.create_from_y_rotation(
             math.radians(self.rotation), dtype=np.float32)
-        S = pyrr.matrix44.create_from_scale(_PORTAL_SCALE, dtype=np.float32)
+        S = pyrr.matrix44.create_from_scale(self.scale, dtype=np.float32)
         return (S @ R @ T).astype(np.float32)
 
     # ── Public accessors ─────────────────────────────────────────────────────
@@ -116,18 +136,24 @@ class Portal:
 
     # ── Pairing ──────────────────────────────────────────────────────────────
 
-    def link_to(self, other: 'Portal') -> None:
+    def set_destination(self, other: 'Portal') -> None:
         """
-        Pair this portal with `other`. Sets `.destiny` on both sides and
-        pre-computes the traversal transform for each direction (so the
-        teleport at run-time is a single mat-vec multiply).
+        One-directional link: this portal sends through to `other` (renders
+        `other`'s view and teleports there), but does NOT touch `other`. Call
+        on both portals for a two-way pair, or on just one for a one-way
+        portal whose destination is an inert exit.
+
+        Pre-computes the traversal transform so the run-time teleport is a
+        single mat-vec multiply.
         """
         self.destiny = other
-        other.destiny = self
         self._traversal_transform = _calculate_traversal_transform(
             self._portal_transform, other._portal_transform)
-        other._traversal_transform = _calculate_traversal_transform(
-            other._portal_transform, self._portal_transform)
+
+    def link_to(self, other: 'Portal') -> None:
+        """Convenience bidirectional pairing (A<->B)."""
+        self.set_destination(other)
+        other.set_destination(self)
 
     # ── Geometric queries ────────────────────────────────────────────────────
 

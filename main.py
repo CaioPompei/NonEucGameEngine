@@ -8,6 +8,7 @@ from engine.camera import Camera
 from engine.shader import Shader
 from engine.text_overlay import TextOverlay
 from engine.window import Window
+from game.collision import CollisionWorld
 from game.level_loader import LevelLoader
 from game.player import Player
 from game.portal_renderer import PortalRenderer
@@ -36,10 +37,26 @@ def main():
                                      SHADERS_DIR / "depth.frag")
 
     loader = LevelLoader()
-    level = loader.load(LEVELS_DIR / "level_01.json")
 
-    camera.position[:] = level.player_start
-    level.scene.bake_shadows(depth_shader)
+    def setup_level(path):
+        """Load a level and build everything tied to it (collision world,
+        baked shadows, portal renderer). Also resets the player onto the new
+        spawn so motion state doesn't carry over between levels."""
+        lvl = loader.load(path)
+        world = CollisionWorld.from_scene(lvl.scene)
+        lvl.scene.bake_shadows(depth_shader)
+        renderer = PortalRenderer(
+            portals=lvl.portals,
+            scene=lvl.scene,
+            scene_shader=phong_shader,
+            stencil_shader=simple_shader,
+            max_depth=3,
+        )
+        player.reset(lvl.player_start)
+        return lvl, world, renderer
+
+    level, collision_world, portal_renderer = setup_level(
+        LEVELS_DIR / "level_01.json")
 
     # "debug mode" label — fixed text, shown only while in FREECAM (toggle V).
     debug_label_overlay = TextOverlay(
@@ -54,13 +71,11 @@ def main():
         font_size=18, color=(180, 255, 180, 255),
         padding=10, margin_px=20, corner="top-right")
 
-    portal_renderer = PortalRenderer(
-        portals=level.portals,
-        scene=level.scene,
-        scene_shader=phong_shader,
-        stencil_shader=simple_shader,
-        max_depth=3,
-    )
+    # Crosshair — small "+" dead center, no background box.
+    crosshair_overlay = TextOverlay(
+        "+", WINDOW_WIDTH, WINDOW_HEIGHT,
+        font_size=18, color=(255, 255, 255, 200),
+        padding=2, corner="center", background=(0, 0, 0, 0))
 
     # near is intentionally tiny: the player can put the camera within a few
     # millimeters of a portal quad before traversing, and any geometry closer
@@ -97,7 +112,8 @@ def main():
             fps_time_acc = 0.0
 
         window.process_events()
-        player.process_input(window.get_handle(), delta_time, level.portals)
+        player.process_input(window.get_handle(), delta_time,
+                             collision_world, level.portals)
 
         # Edge-triggered toggle for the stats panel (`´` in BR-ABNT2).
         stats_key_now = glfw.get_key(window.get_handle(),
@@ -110,6 +126,14 @@ def main():
             event = trigger.check(camera.position)
             if event is not None:
                 level.puzzle.dispatch(event)
+
+        # Level transition: when the puzzle is solved and points to a next
+        # level, swap the whole runtime and skip the rest of this frame.
+        if level.puzzle.should_transition():
+            level, collision_world, portal_renderer = setup_level(
+                LEVELS_DIR / level.puzzle.next_level)
+            previous_time = glfw.get_time()  # avoid a huge dt after the bake
+            continue
 
         view = camera.get_view_matrix()
 
@@ -124,6 +148,10 @@ def main():
 
         portal_renderer.render(view, projection, camera.position)
 
+        # Crosshair — only while actually playing (WALK), not in debug fly-cam.
+        if player.mode == Player.MODE_WALK:
+            crosshair_overlay.draw()
+
         # "debug mode" label — only while FREECAM is active.
         if player.mode == Player.MODE_FREECAM:
             debug_label_overlay.draw()
@@ -134,14 +162,18 @@ def main():
                 x, y, z = camera.position
                 mode_label = ("FREECAM" if player.mode == Player.MODE_FREECAM
                               else "WALK")
+                speed = float(np.linalg.norm(player.velocity))
+                ground_label = "yes" if player.on_ground else "no"
                 stats_overlay.update_text(
-                    f"fps    {fps_display:6.1f}\n"
-                    f"mode   {mode_label}\n"
-                    f"x      {x:7.2f}\n"
-                    f"y      {y:7.2f}\n"
-                    f"z      {z:7.2f}\n"
-                    f"yaw    {camera.yaw:7.1f}\n"
-                    f"pitch  {camera.pitch:7.1f}"
+                    f"fps     {fps_display:6.1f}\n"
+                    f"mode    {mode_label}\n"
+                    f"x       {x:7.2f}\n"
+                    f"y       {y:7.2f}\n"
+                    f"z       {z:7.2f}\n"
+                    f"yaw     {camera.yaw:7.1f}\n"
+                    f"pitch   {camera.pitch:7.1f}\n"
+                    f"speed   {speed:7.2f}\n"
+                    f"ground  {ground_label:>7}"
                 )
                 stats_next_update = real_time + STATS_UPDATE_INTERVAL
             stats_overlay.draw()
