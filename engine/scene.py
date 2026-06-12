@@ -4,7 +4,7 @@ from engine.shader import Shader
 from engine.shadow_map import bind_null_cubemap
 
 # Must match MAX_LIGHTS in shaders/phong.frag.
-MAX_LIGHTS = 8
+MAX_LIGHTS = 10
 
 
 class Scene:

@@ -3,7 +3,7 @@
 // Bump this and the unrolled `if (i < numLights)` block in main() if you
 // need more simultaneous lights. GLSL 330 does not allow indexing
 // samplerCube arrays with a dynamic int, so the unroll is required.
-#define MAX_LIGHTS 8
+#define MAX_LIGHTS 10
 
 in vec3 frag_pos;
 in vec3 frag_normal;
@@ -132,6 +132,12 @@ void main() {
     if (1 < numLights) lighting += compute_light(lights[1], shadowMaps[1], normal, view_dir);
     if (2 < numLights) lighting += compute_light(lights[2], shadowMaps[2], normal, view_dir);
     if (3 < numLights) lighting += compute_light(lights[3], shadowMaps[3], normal, view_dir);
+    if (4 < numLights) lighting += compute_light(lights[4], shadowMaps[4], normal, view_dir);
+    if (5 < numLights) lighting += compute_light(lights[5], shadowMaps[5], normal, view_dir);
+    if (6 < numLights) lighting += compute_light(lights[6], shadowMaps[6], normal, view_dir);
+    if (7 < numLights) lighting += compute_light(lights[7], shadowMaps[7], normal, view_dir);
+    if (8 < numLights) lighting += compute_light(lights[8], shadowMaps[8], normal, view_dir);
+    if (9 < numLights) lighting += compute_light(lights[9], shadowMaps[9], normal, view_dir);
 
     vec3 base = objectColor;
     if (useTexture == 1) {
