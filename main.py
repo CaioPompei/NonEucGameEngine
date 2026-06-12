@@ -50,7 +50,7 @@ def main():
             scene=lvl.scene,
             scene_shader=phong_shader,
             stencil_shader=simple_shader,
-            max_depth=3,
+            max_depth=0,
         )
         player.reset(lvl.player_start)
         return lvl, world, renderer

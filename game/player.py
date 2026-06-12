@@ -31,7 +31,7 @@ class Player:
     MODE_FREECAM = 1
 
     # ── Body dimensions (world units; the scene is modelled large) ───────────
-    RADIUS = 0.5          # half-width on X/Z
+    RADIUS = 0.1         # half-width on X/Z
     EYE_HEIGHT = 1.0      # feet → eye
     HEAD_CLEARANCE = 0.3  # eye → top of head
     HEIGHT = EYE_HEIGHT + HEAD_CLEARANCE
@@ -39,7 +39,7 @@ class Player:
     # ── Head bob (visual-only camera sway while walking) ─────────────────────
     BOB_FREQUENCY = 4.5   # phase advance per world unit travelled
     BOB_AMP_VERTICAL = 0.08
-    BOB_AMP_SIDE = 0.03
+    BOB_AMP_SIDE = 0.0
     BOB_BLEND_RATE = 9.0  # how fast the bob fades in/out (per second)
     BOB_MIN_SPEED = 0.5   # below this we treat the player as standing still
 

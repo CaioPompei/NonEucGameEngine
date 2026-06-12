@@ -3,7 +3,7 @@
 // Bump this and the unrolled `if (i < numLights)` block in main() if you
 // need more simultaneous lights. GLSL 330 does not allow indexing
 // samplerCube arrays with a dynamic int, so the unroll is required.
-#define MAX_LIGHTS 4
+#define MAX_LIGHTS 8
 
 in vec3 frag_pos;
 in vec3 frag_normal;
@@ -11,16 +11,24 @@ in vec2 frag_uv;
 
 out vec4 fragColor;
 
-struct PointLight {
-    vec3 position;
+#define LIGHT_POINT 0
+#define LIGHT_DIRECTIONAL 1
+#define LIGHT_SPOT 2
+
+struct Light {
+    int type;           // LIGHT_POINT / LIGHT_DIRECTIONAL / LIGHT_SPOT
+    vec3 position;      // point / spot
+    vec3 direction;     // directional / spot — travel direction (normalized)
     vec3 color;         // already pre-multiplied by intensity
-    float range;        // attenuation falls to 0 at this distance
+    float range;        // point / spot attenuation distance (+ shadow far)
     float far_plane;    // shadow projection far plane (== range)
     float bias;         // shadow comparison bias (world units)
-    int cast_shadows;   // 0/1
+    int cast_shadows;   // 0/1 (cubemap shadows — point lights only for now)
+    float inner_cos;    // spot inner cone cosine (full intensity within)
+    float outer_cos;    // spot outer cone cosine (zero beyond)
 };
 
-uniform PointLight pointLights[MAX_LIGHTS];
+uniform Light lights[MAX_LIGHTS];
 uniform samplerCube shadowMaps[MAX_LIGHTS];
 uniform int numLights;
 
@@ -61,13 +69,36 @@ float shadow_factor(samplerCube shadowMap, vec3 light_to_frag,
     return shadow / 9.0;
 }
 
-vec3 compute_point_light(PointLight light, samplerCube shadowMap,
-                          vec3 normal, vec3 view_dir) {
-    vec3 light_to_frag = frag_pos - light.position;
-    float dist = length(light_to_frag);
-    if (dist > light.range) return vec3(0.0);
+vec3 compute_light(Light light, samplerCube shadowMap,
+                   vec3 normal, vec3 view_dir) {
+    vec3 light_dir;            // surface -> light (normalized)
+    vec3 light_to_frag = vec3(0.0);
+    float dist = 0.0;
+    float attenuation = 1.0;
 
-    vec3 light_dir = -light_to_frag / dist;
+    if (light.type == LIGHT_DIRECTIONAL) {
+        // No position / falloff — a parallel "sun".
+        light_dir = normalize(-light.direction);
+    } else {
+        light_to_frag = frag_pos - light.position;
+        dist = length(light_to_frag);
+        if (dist > light.range) return vec3(0.0);
+        light_dir = -light_to_frag / dist;
+
+        // Smooth quadratic falloff to zero at `range`.
+        float t = clamp(dist / light.range, 0.0, 1.0);
+        attenuation = (1.0 - t) * (1.0 - t);
+
+        if (light.type == LIGHT_SPOT) {
+            // Cone falloff: full inside inner_cos, zero past outer_cos.
+            float cos_theta = dot(-light_dir, normalize(light.direction));
+            float cone = clamp(
+                (cos_theta - light.outer_cos) /
+                max(light.inner_cos - light.outer_cos, 1e-4), 0.0, 1.0);
+            if (cone <= 0.0) return vec3(0.0);
+            attenuation *= cone;
+        }
+    }
 
     // Diffuse (Lambert)
     float diff = max(dot(normal, light_dir), 0.0);
@@ -78,12 +109,10 @@ vec3 compute_point_light(PointLight light, samplerCube shadowMap,
     float spec = pow(max(dot(normal, halfway), 0.0), 64.0);
     vec3 specular = 0.5 * spec * light.color;
 
-    // Smooth quadratic falloff to zero at `range`.
-    float t = clamp(dist / light.range, 0.0, 1.0);
-    float attenuation = (1.0 - t) * (1.0 - t);
-
+    // Cubemap shadows are point-light only (directional/spot use 2D maps,
+    // not implemented yet).
     float shadow = 0.0;
-    if (light.cast_shadows == 1 && diff > 0.0) {
+    if (light.type == LIGHT_POINT && light.cast_shadows == 1 && diff > 0.0) {
         shadow = shadow_factor(shadowMap, light_to_frag, dist,
                                light.far_plane, light.bias);
     }
@@ -99,10 +128,10 @@ void main() {
 
     // Manual unroll — samplerCube arrays can't be indexed by a dynamic int
     // in GLSL 330.
-    if (0 < numLights) lighting += compute_point_light(pointLights[0], shadowMaps[0], normal, view_dir);
-    if (1 < numLights) lighting += compute_point_light(pointLights[1], shadowMaps[1], normal, view_dir);
-    if (2 < numLights) lighting += compute_point_light(pointLights[2], shadowMaps[2], normal, view_dir);
-    if (3 < numLights) lighting += compute_point_light(pointLights[3], shadowMaps[3], normal, view_dir);
+    if (0 < numLights) lighting += compute_light(lights[0], shadowMaps[0], normal, view_dir);
+    if (1 < numLights) lighting += compute_light(lights[1], shadowMaps[1], normal, view_dir);
+    if (2 < numLights) lighting += compute_light(lights[2], shadowMaps[2], normal, view_dir);
+    if (3 < numLights) lighting += compute_light(lights[3], shadowMaps[3], normal, view_dir);
 
     vec3 base = objectColor;
     if (useTexture == 1) {

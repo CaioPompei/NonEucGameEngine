@@ -23,6 +23,7 @@ sensible defaults so partial JSONs still load):
         ],
 
         "lights": [
+            # point — omnidirectional, the only type with shadows
             {
                 "type": "point",
                 "position": [x, y, z],
@@ -31,6 +32,24 @@ sensible defaults so partial JSONs still load):
                 "range": 35.0,
                 "cast_shadows": true,
                 "shadow_resolution": 1024
+            },
+            # directional — a sun; just a travel direction, no falloff/shadow
+            {
+                "type": "directional",
+                "direction": [x, y, z],
+                "color": [r, g, b],
+                "intensity": 1.0
+            },
+            # spot — cone; inner_angle..outer_angle in degrees, no shadow yet
+            {
+                "type": "spot",
+                "position": [x, y, z],
+                "direction": [x, y, z],
+                "color": [r, g, b],
+                "intensity": 1.0,
+                "range": 35.0,
+                "inner_angle": 20.0,
+                "outer_angle": 30.0
             }, ...
         ],
 
@@ -69,7 +88,7 @@ import json
 from pathlib import Path
 
 from engine.entity import Entity
-from engine.light import PointLight
+from engine.light import PointLight, DirectionalLight, SpotLight
 from engine.scene import Scene
 from engine.texture import TextureRegistry
 from game.level import Level
@@ -155,20 +174,40 @@ class LevelLoader:
                 f"{source}: texture not found: {path}")
         return self.texture_registry.get(path)
 
-    def _build_light(self, l: dict, source: Path) -> PointLight:
+    def _build_light(self, l: dict, source: Path):
         light_type = l.get("type", "point")
-        if light_type != "point":
-            raise ValueError(
-                f"{source}: light type '{light_type}' not supported yet "
-                f"(only 'point' for now)")
-        return PointLight(
-            position=tuple(l.get("position", (0.0, 0.0, 0.0))),
-            color=tuple(l.get("color", (1.0, 1.0, 1.0))),
-            intensity=float(l.get("intensity", 1.0)),
-            range=float(l.get("range", 30.0)),
-            cast_shadows=bool(l.get("cast_shadows", True)),
-            shadow_resolution=int(l.get("shadow_resolution", 1024)),
-        )
+
+        if light_type == "point":
+            return PointLight(
+                position=tuple(l.get("position", (0.0, 0.0, 0.0))),
+                color=tuple(l.get("color", (1.0, 1.0, 1.0))),
+                intensity=float(l.get("intensity", 1.0)),
+                range=float(l.get("range", 30.0)),
+                cast_shadows=bool(l.get("cast_shadows", True)),
+                shadow_resolution=int(l.get("shadow_resolution", 1024)),
+            )
+
+        if light_type == "directional":
+            return DirectionalLight(
+                direction=tuple(l.get("direction", (0.0, -1.0, 0.0))),
+                color=tuple(l.get("color", (1.0, 1.0, 1.0))),
+                intensity=float(l.get("intensity", 1.0)),
+            )
+
+        if light_type == "spot":
+            return SpotLight(
+                position=tuple(l.get("position", (0.0, 0.0, 0.0))),
+                direction=tuple(l.get("direction", (0.0, -1.0, 0.0))),
+                color=tuple(l.get("color", (1.0, 1.0, 1.0))),
+                intensity=float(l.get("intensity", 1.0)),
+                range=float(l.get("range", 30.0)),
+                inner_angle=float(l.get("inner_angle", 20.0)),
+                outer_angle=float(l.get("outer_angle", 30.0)),
+            )
+
+        raise ValueError(
+            f"{source}: unknown light type '{light_type}' "
+            f"(expected 'point', 'directional' or 'spot')")
 
     def _build_trigger(self, t: dict, source: Path) -> Trigger:
         for required in ("id", "aabb_min", "aabb_max", "on_enter"):
