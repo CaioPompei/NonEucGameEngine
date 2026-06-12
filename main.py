@@ -148,6 +148,11 @@ def main():
 
         portal_renderer.render(view, projection, camera.position)
 
+        # Sky last: it's drawn at the far plane and only fills pixels the scene
+        # and portals didn't already cover.
+        if level.skybox is not None:
+            level.skybox.draw(view, projection)
+
         # Crosshair — only while actually playing (WALK), not in debug fly-cam.
         if player.mode == Player.MODE_WALK:
             crosshair_overlay.draw()

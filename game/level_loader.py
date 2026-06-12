@@ -9,6 +9,14 @@ sensible defaults so partial JSONs still load):
         "player_start": [x, y, z],
         "ambient_color": [r, g, b],
 
+        # Background sky cube. Two forms, both optional:
+        #   "skybox": "textures/sky/blue"           # folder convention:
+        #       expects right/left/top/bottom/front/back.png inside it
+        #   "skybox": {                             # explicit per-face paths
+        #       "right": "...", "left": "...", "top": "...",
+        #       "bottom": "...", "front": "...", "back": "..."
+        #   }
+
         "entities": [
             {
                 "mesh": "cube",                     # MeshRegistry key
@@ -90,6 +98,7 @@ from pathlib import Path
 from engine.entity import Entity
 from engine.light import PointLight, DirectionalLight, SpotLight
 from engine.scene import Scene
+from engine.skybox import Skybox
 from engine.texture import TextureRegistry
 from game.level import Level
 from game.mesh_registry import MeshRegistry
@@ -136,6 +145,7 @@ class LevelLoader:
         triggers = [self._build_trigger(t, source)
                     for t in data.get("triggers", [])]
         puzzle = self._build_puzzle(data.get("puzzle", {}))
+        skybox = self._build_skybox(data.get("skybox"), source)
 
         return Level(
             name=data["name"],
@@ -144,6 +154,7 @@ class LevelLoader:
             triggers=triggers,
             puzzle=puzzle,
             player_start=tuple(data.get("player_start", (0.0, 0.0, 0.0))),
+            skybox=skybox,
         )
 
     def _build_entity(self, e: dict, source: Path) -> Entity:
@@ -166,13 +177,46 @@ class LevelLoader:
         return None when the entity declares no texture."""
         if not rel_path:
             return None
+        return self.texture_registry.get(self._resolve_asset(rel_path, source))
+
+    # Face order the engine's Skybox expects.
+    _SKYBOX_FACES = ("right", "left", "top", "bottom", "front", "back")
+
+    def _build_skybox(self, spec, source: Path) -> Skybox | None:
+        """Build a Skybox from the level's `skybox` field, or None if absent.
+
+        Accepts a folder string (faces named <face>.png inside) or a dict
+        mapping each face name to its image path.
+        """
+        if not spec:
+            return None
+
+        if isinstance(spec, str):
+            face_paths = [f"{spec}/{face}.png" for face in self._SKYBOX_FACES]
+        elif isinstance(spec, dict):
+            missing = [f for f in self._SKYBOX_FACES if f not in spec]
+            if missing:
+                raise ValueError(
+                    f"{source}: skybox missing face(s) {missing}; "
+                    f"need all of {list(self._SKYBOX_FACES)}")
+            face_paths = [spec[face] for face in self._SKYBOX_FACES]
+        else:
+            raise ValueError(
+                f"{source}: 'skybox' must be a folder string or a dict of "
+                f"face paths, got {type(spec).__name__}")
+
+        resolved = [self._resolve_asset(p, source) for p in face_paths]
+        return Skybox(resolved)
+
+    def _resolve_asset(self, rel_path, source: Path) -> Path:
+        """Resolve an asset path relative to the repo root and verify it
+        exists. Shared by textures and skybox faces."""
         path = Path(rel_path)
         if not path.is_absolute():
             path = _PROJECT_ROOT / path
         if not path.exists():
-            raise FileNotFoundError(
-                f"{source}: texture not found: {path}")
-        return self.texture_registry.get(path)
+            raise FileNotFoundError(f"{source}: asset not found: {path}")
+        return path
 
     def _build_light(self, l: dict, source: Path):
         light_type = l.get("type", "point")
