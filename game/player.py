@@ -31,7 +31,7 @@ class Player:
     MODE_FREECAM = 1
 
     # ── Body dimensions (world units; the scene is modelled large) ───────────
-    RADIUS = 0.1         # half-width on X/Z
+    RADIUS = 0.2         # half-width on X/Z
     EYE_HEIGHT = 1.0      # feet → eye
     HEAD_CLEARANCE = 0.3  # eye → top of head
     HEIGHT = EYE_HEIGHT + HEAD_CLEARANCE

@@ -94,7 +94,26 @@
             "rotation": 90.0,
             "color": [0.2, 0.5, 1.0],
             "scale": [1.5, 2.0]
+        },
+        {
+            "_comment": "E - Portal In, Visão da sala",
+            "id": "E",
+            "linked_to": "F",
+            "position": [0.0, 2.0, -5.0],
+            "rotation": 180.0,
+            "color": [0.5, 1.0, 0.5],
+            "scale": [5.0, 4.0]
+        },
+        {
+            "_comment": "F - Portal Out, Visão do corredor",
+            "id": "F",
+            "linked_to": "",
+            "position": [0.0, 2.0, -5.5],
+            "rotation": 180.0,
+            "color": [0.5, 1.0, 0.5],
+            "scale": [5.0, 4.0]
         }
+
     ],
 
 
