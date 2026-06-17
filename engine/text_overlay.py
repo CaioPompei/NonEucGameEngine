@@ -43,7 +43,8 @@ class TextOverlay:
     def __init__(self, text, window_width, window_height,
                  font_size=16, color=(255, 255, 255, 255),
                  padding=10, margin_px=12, corner="top-left",
-                 background=(0, 0, 0, 160)):
+                 background=(0, 0, 0, 160),
+                 offset_px=(0, 0), font_name="arial.ttf"):
         self._shader = Shader(_VS, _FS)
         self._window_size = (window_width, window_height)
         self._color = color
@@ -51,11 +52,12 @@ class TextOverlay:
         self._margin_px = margin_px
         self._corner = corner
         self._background = background
+        # Extra screen-space shift applied to the quad, in pixels: +x right,
+        # +y up. Lets callers place text away from a corner/center anchor
+        # (e.g. stacking menu items vertically).
+        self._offset_px = offset_px
 
-        try:
-            self._font = ImageFont.truetype("arial.ttf", font_size)
-        except OSError:
-            self._font = ImageFont.load_default()
+        self._font = self._load_font(font_name, font_size)
 
         self._texture = glGenTextures(1)
         self._vao = glGenVertexArrays(1)
@@ -94,6 +96,20 @@ class TextOverlay:
         glEnable(GL_DEPTH_TEST)
 
     # ── Internals ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _load_font(font_name, font_size):
+        """Try the requested font, then arial, then PIL's built-in bitmap
+        font. On Windows, truetype() looks up bare names in the system fonts
+        directory, so "segoeui.ttf" etc. resolve without a full path."""
+        for candidate in (font_name, "arial.ttf"):
+            if not candidate:
+                continue
+            try:
+                return ImageFont.truetype(candidate, font_size)
+            except OSError:
+                continue
+        return ImageFont.load_default()
 
     def _rasterize_and_upload(self, text: str) -> None:
         # Multiline-aware: bbox via textbbox handles \n.
@@ -152,6 +168,12 @@ class TextOverlay:
         else:  # bottom-right
             x1, y0 = 1.0 - mx, -1.0 + my
             x0, y1 = x1 - w, y0 + h
+
+        # Apply the screen-space offset (pixels -> NDC; +y is up).
+        ox = 2.0 * self._offset_px[0] / win_w
+        oy = 2.0 * self._offset_px[1] / win_h
+        x0 += ox; x1 += ox
+        y0 += oy; y1 += oy
 
         # Two triangles, with UVs
         vertices = np.array([

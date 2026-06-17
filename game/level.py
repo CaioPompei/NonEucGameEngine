@@ -22,5 +22,8 @@ class Level:
     triggers: list[Trigger] = field(default_factory=list)
     puzzle: PuzzleManager = field(default_factory=PuzzleManager)
     player_start: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    # Optional initial look direction (world-space vector). None -> keep the
+    # camera's current orientation (default faces -Z).
+    player_start_dir: tuple[float, float, float] | None = None
     # Optional background cube of sky. None -> the window's clear color shows.
     skybox: Skybox | None = None

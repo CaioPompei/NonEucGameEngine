@@ -7,9 +7,15 @@ sensible defaults so partial JSONs still load):
     {
         "name": "Fase 01",                          # required
         "player_start": [x, y, z],
+        "player_start_dir": [x, y, z],              # optional: initial look
+                                                    # direction (e.g. [1,0,0]
+                                                    # faces +X, [0,0,-1] faces
+                                                    # -Z). Omit to keep default.
         "ambient_color": [r, g, b],
 
-        # Background sky cube. Two forms, both optional:
+        # Background sky cube. Three forms, all optional:
+        #   "skybox": "textures/sky/night.png"      # single horizontal-cross
+        #       image (4x3 faces), sliced in-memory — just one file
         #   "skybox": "textures/sky/blue"           # folder convention:
         #       expects right/left/top/bottom/front/back.png inside it
         #   "skybox": {                             # explicit per-face paths
@@ -147,6 +153,7 @@ class LevelLoader:
         puzzle = self._build_puzzle(data.get("puzzle", {}))
         skybox = self._build_skybox(data.get("skybox"), source)
 
+        look_dir = data.get("player_start_dir")
         return Level(
             name=data["name"],
             scene=scene,
@@ -154,6 +161,7 @@ class LevelLoader:
             triggers=triggers,
             puzzle=puzzle,
             player_start=tuple(data.get("player_start", (0.0, 0.0, 0.0))),
+            player_start_dir=tuple(look_dir) if look_dir else None,
             skybox=skybox,
         )
 
@@ -181,17 +189,23 @@ class LevelLoader:
 
     # Face order the engine's Skybox expects.
     _SKYBOX_FACES = ("right", "left", "top", "bottom", "front", "back")
+    _SKYBOX_IMAGE_EXTS = (".png", ".jpg", ".jpeg")
 
     def _build_skybox(self, spec, source: Path) -> Skybox | None:
         """Build a Skybox from the level's `skybox` field, or None if absent.
 
-        Accepts a folder string (faces named <face>.png inside) or a dict
-        mapping each face name to its image path.
+        Accepts a single cross-image file (e.g. ".../sky.png"), a folder string
+        (faces named <face>.png inside), or a dict mapping each face name to
+        its image path.
         """
         if not spec:
             return None
 
         if isinstance(spec, str):
+            # A path to an image file -> single horizontal-cross cubemap.
+            if spec.lower().endswith(self._SKYBOX_IMAGE_EXTS):
+                return Skybox.from_cross(self._resolve_asset(spec, source))
+            # Otherwise it's a folder holding the six <face>.png files.
             face_paths = [f"{spec}/{face}.png" for face in self._SKYBOX_FACES]
         elif isinstance(spec, dict):
             missing = [f for f in self._SKYBOX_FACES if f not in spec]
@@ -202,11 +216,11 @@ class LevelLoader:
             face_paths = [spec[face] for face in self._SKYBOX_FACES]
         else:
             raise ValueError(
-                f"{source}: 'skybox' must be a folder string or a dict of "
-                f"face paths, got {type(spec).__name__}")
+                f"{source}: 'skybox' must be an image path, a folder string, "
+                f"or a dict of face paths, got {type(spec).__name__}")
 
         resolved = [self._resolve_asset(p, source) for p in face_paths]
-        return Skybox(resolved)
+        return Skybox.from_faces(resolved)
 
     def _resolve_asset(self, rel_path, source: Path) -> Path:
         """Resolve an asset path relative to the repo root and verify it

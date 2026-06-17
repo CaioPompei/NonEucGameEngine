@@ -5,6 +5,7 @@ import numpy as np
 import pyrr
 
 from engine.camera import Camera
+from engine.menu import Menu
 from engine.shader import Shader
 from engine.text_overlay import TextOverlay
 from engine.window import Window
@@ -26,8 +27,13 @@ def main():
     camera = Camera(position=(0.0, 0.3, 3.0))
     player = Player(camera)
 
-    window.get_mouse()
-    window.set_callback_mouse(lambda win, x, y: camera.process_mouse_movement(x, y))
+    def on_mouse(win, x, y):
+        # Only steer the camera while actually playing. In the menu the cursor
+        # is free, and moving it must not rotate the level's view.
+        if state == STATE_PLAYING:
+            camera.process_mouse_movement(x, y)
+
+    window.set_callback_mouse(on_mouse)
 
     phong_shader = Shader.from_files(SHADERS_DIR / "phong.vert",
                                      SHADERS_DIR / "phong.frag")
@@ -44,6 +50,10 @@ def main():
         spawn so motion state doesn't carry over between levels."""
         lvl = loader.load(path)
         world = CollisionWorld.from_scene(lvl.scene)
+        # Merge static geometry before baking: both the shadow bake and every
+        # per-frame / per-portal scene draw then cost one call per texture+color
+        # group instead of one per entity.
+        lvl.scene.build_static_batch()
         lvl.scene.bake_shadows(depth_shader)
         renderer = PortalRenderer(
             portals=lvl.portals,
@@ -51,12 +61,21 @@ def main():
             scene_shader=phong_shader,
             stencil_shader=simple_shader,
             max_depth=0,
+            skybox=lvl.skybox,
         )
-        player.reset(lvl.player_start)
+        player.reset(lvl.player_start, lvl.player_start_dir)
         return lvl, world, renderer
 
-    level, collision_world, portal_renderer = setup_level(
-        LEVELS_DIR / "level_01.json")
+    # Game runtime, built lazily the first time the player leaves the menu so
+    # the (expensive) shadow bake doesn't run until a level is actually played.
+    level = collision_world = portal_renderer = None
+
+    # Initial menu. Actions are matched in the main loop below.
+    main_menu = Menu(
+        "NonEucGameEngine",
+        [("Iniciar", "start"),
+         ("Sair", "quit")],
+        WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # "debug mode" label — fixed text, shown only while in FREECAM (toggle V).
     debug_label_overlay = TextOverlay(
@@ -99,10 +118,56 @@ def main():
     show_stats = False
     stats_key_was_pressed = False
 
+    # ── Game state ────────────────────────────────────────────────────────────
+    # MENU shows the initial menu (free cursor); PLAYING runs a level (captured
+    # cursor). ESC toggles PLAYING -> MENU; in MENU it quits.
+    STATE_MENU = "menu"
+    STATE_PLAYING = "playing"
+    state = STATE_MENU
+    window.set_cursor_captured(False)
+    esc_was_pressed = False
+
     while not window.window_close():
         real_time = glfw.get_time()
         delta_time = real_time - previous_time
         previous_time = real_time
+
+        window.process_events()
+
+        # Central ESC handling (edge-triggered): the menu owns "quit", the game
+        # uses it to return to the menu.
+        esc_now = glfw.get_key(window.get_handle(),
+                               glfw.KEY_ESCAPE) == glfw.PRESS
+        esc_pressed = esc_now and not esc_was_pressed
+        esc_was_pressed = esc_now
+
+        if state == STATE_MENU:
+            if esc_pressed:
+                break
+            action = main_menu.update(window.get_handle())
+            if action == "quit":
+                break
+            if action == "start":
+                if level is None:
+                    level, collision_world, portal_renderer = setup_level(
+                        LEVELS_DIR / "level_01.json")
+                camera.first_mouse = True  # avoid a look jump on re-capture
+                window.set_cursor_captured(True)
+                state = STATE_PLAYING
+                previous_time = glfw.get_time()  # discard the menu->play dt
+                continue
+
+            window.clear((0.0, 0.0, 0.0, 1.0))
+            main_menu.draw()
+            window.show()
+            continue
+
+        # ── PLAYING ────────────────────────────────────────────────────────────
+        if esc_pressed:
+            window.set_cursor_captured(False)
+            main_menu.reset()
+            state = STATE_MENU
+            continue
 
         fps_count += 1
         fps_time_acc += delta_time
@@ -111,7 +176,6 @@ def main():
             fps_count = 0
             fps_time_acc = 0.0
 
-        window.process_events()
         player.process_input(window.get_handle(), delta_time,
                              collision_world, level.portals)
 

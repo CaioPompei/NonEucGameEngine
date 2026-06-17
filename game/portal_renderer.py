@@ -35,12 +35,16 @@ class PortalRenderer:
                  scene: Scene,
                  scene_shader: Shader,
                  stencil_shader: Shader,
-                 max_depth: int = 3):
+                 max_depth: int = 3,
+                 skybox=None):
         self.portals = portals
         self.scene = scene
         self.scene_shader = scene_shader
         self.stencil_shader = stencil_shader
         self.max_depth = max_depth
+        # Optional level skybox; drawn inside each portal's virtual view so the
+        # sky shows through portals, not only in the main pass.
+        self.skybox = skybox
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -155,3 +159,10 @@ class PortalRenderer:
         # Lights + shadow cubemaps are bound once per frame in main.py and
         # remain on their texture units; no re-bind needed per recursion.
         self.scene.draw(self.scene_shader)
+
+        # Fill this portal's remaining far-plane pixels with the sky, as seen
+        # from the virtual camera, masked to the portal's stencil region. The
+        # oblique projection only alters z (the sky discards z via pos.xyww),
+        # so reusing `projection` here is correct.
+        if self.skybox is not None:
+            self.skybox.draw(view, projection, stencil_ref=stencil_ref)

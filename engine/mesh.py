@@ -18,8 +18,14 @@ class Mesh:
     def __init__(self, vertices: np.ndarray,
                  have_normals: bool = False,
                  have_uv: bool = False):
-        floats_per_vertex = 3 + (3 if have_normals else 0) + (2 if have_uv else 0)
-        self._num_vertices = len(vertices) // floats_per_vertex
+        self.have_normals = have_normals
+        self.have_uv = have_uv
+        self.floats_per_vertex = 3 + (3 if have_normals else 0) + (2 if have_uv else 0)
+        # Keep the source vertices around so static batching can read this
+        # mesh's geometry (positions/normals/uv) and bake it into a merged
+        # buffer. Cheap for the small primitives used here.
+        self.vertices = np.asarray(vertices, dtype=np.float32)
+        self._num_vertices = len(vertices) // self.floats_per_vertex
         self._vao = self._create_vao(vertices, have_normals, have_uv)
 
     def draw(self):

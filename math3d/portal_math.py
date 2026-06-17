@@ -15,6 +15,16 @@ import math
 import numpy as np
 
 
+# Abaixo desta distância (world units) entre a câmera virtual e o plano do
+# portal destino, NÃO aplicamos o near plane oblíquo. Quando a câmera virtual
+# encosta no plano — o que acontece justamente ao ATRAVESSAR o portal — o near
+# plane oblíquo passa a coincidir com a câmera, `dot(c, q)` tende a zero e a
+# matriz de projeção degenera, pintando um "quadrado" de lixo dentro do portal.
+# Nesse regime a fatia entre a câmera e o portal é fina demais para vazar
+# geometria, então cair para a projeção normal por esse frame é imperceptível.
+_OBLIQUE_MIN_DISTANCE = 0.1
+
+
 def portal_normal_world(rotation_degrees: float) -> np.ndarray:
     """
     Normal frontal do portal em world space.
@@ -177,8 +187,15 @@ def calculate_oblique_projection(projection: np.ndarray,
     virtual_cam_pos = inv_view[3, :3]
 
     cam_to_portal = destiny_position - virtual_cam_pos
-    if float(np.dot(normal_w, cam_to_portal)) < 0.0:
+    signed_dist = float(np.dot(normal_w, cam_to_portal))
+    if signed_dist < 0.0:
         normal_w = -normal_w
+        signed_dist = -signed_dist
+
+    # Câmera virtual coladíssima no plano destino (você está atravessando):
+    # a projeção oblíqua degenera. Devolve a projeção normal por este frame.
+    if signed_dist < _OBLIQUE_MIN_DISTANCE:
+        return projection.astype(np.float32)
 
     plane_view = plane_world_to_view(normal_w, destiny_position, virtual_view)
     return oblique_near_plane(projection, plane_view)

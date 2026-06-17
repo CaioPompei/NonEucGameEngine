@@ -31,7 +31,7 @@ class Player:
     MODE_FREECAM = 1
 
     # ── Body dimensions (world units; the scene is modelled large) ───────────
-    RADIUS = 0.2         # half-width on X/Z
+    RADIUS = 0.4         # half-width on X/Z
     EYE_HEIGHT = 1.0      # feet → eye
     HEAD_CLEARANCE = 0.3  # eye → top of head
     HEIGHT = EYE_HEIGHT + HEAD_CLEARANCE
@@ -92,13 +92,19 @@ class Player:
         return np.array([Player.RADIUS, Player.HEIGHT * 0.5, Player.RADIUS],
                         dtype=np.float32)
 
-    def reset(self, position):
+    def reset(self, position, look_dir=None):
         """
         Place the player at `position` (eye position) and clear all motion
         state. Called on spawn and whenever a new level is loaded so velocity,
         grounding, and portal-traversal caches don't leak across levels.
+
+        `look_dir` is an optional world-space facing direction; when given, the
+        camera's initial orientation is set to look that way. When None, the
+        camera keeps its current orientation.
         """
         self.camera.position[:] = position
+        if look_dir is not None:
+            self.camera.set_orientation_from_front(look_dir)
         self.velocity[:] = 0.0
         self.velocity_y = 0.0
         self.on_ground = False
@@ -112,9 +118,8 @@ class Player:
         self._last_sd.clear()
 
     def process_input(self, window, delta_time, world=None, portals=()):
-        # ESC closes
-        if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:
-            glfw.set_window_should_close(window, True)
+        # ESC is handled centrally by the main loop (it returns to the menu
+        # rather than closing the window), so it is intentionally not read here.
 
         # V toggles WALK <-> FREECAM (edge-triggered)
         v_pressed = glfw.get_key(window, glfw.KEY_V) == glfw.PRESS

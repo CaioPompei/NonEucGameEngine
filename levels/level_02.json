@@ -1,18 +1,71 @@
 {
     "name": "level_02",
-    "player_start": [0.0, 1.2, 0.0],
+    "player_start": [-23.0, 1.2, 2.0],
+    "player_start_dir": [0.0, 0.0, -1.0],
     "ambient_color": [0.05, 0.05, 0.05],
+    "skybox": "textures/skyboxes/sky01.png",
 
     "lights": [
         {
             "type": "point",
-            "position": [0.0, 3.5, 0.0],
+            "position": [-20.0, 3.0, -2.0],
             "direction": [0.0, -1.0, 0.0],
             "color": [1.0, 1.0, 1.0],
-            "intensity": 1,
-            "range": 15.0,
-            "cast_shadows": true,
+            "intensity": 0.5,
+            "range": 10.0,
+            "cast_shadows": false,
             "shadow_resolution": 1024
+        },
+        {
+            "type": "point",
+            "position": [-20.0, 3.0, 2.0],
+            "direction": [0.0, -1.0, 0.0],
+            "color": [1.0, 1.0, 1.0],
+            "intensity": 0.5,
+            "range": 10.0,
+            "cast_shadows": false,
+            "shadow_resolution": 1024
+        },
+        {
+            "type": "point",
+            "position": [20.0, 3.0, -2.0],
+            "direction": [0.0, -1.0, 0.0],
+            "color": [1.0, 1.0, 1.0],
+            "intensity": 0.5,
+            "range": 10.0,
+            "cast_shadows": false,
+            "shadow_resolution": 1024
+        },
+        {
+            "type": "point",
+            "position": [20.0, 3.0, 2.0],
+            "direction": [0.0, -1.0, 0.0],
+            "color": [1.0, 1.0, 1.0],
+            "intensity": 0.5,
+            "range": 10.0,
+            "cast_shadows": false,
+            "shadow_resolution": 1024
+        }
+    ],
+
+    "portals": [
+        {
+            "_comment": "Portal_room01_to_room02",
+            "id": "A",
+            "linked_to": "B",
+            "position": [-22.0, 2.0, 0.0],
+            "rotation": 180.0,
+            "color": [0.5, 1.0, 0.5],
+            "scale": [4.0, 2.0]
+        },
+        {
+            "_comment": "Portal_room02_to_room01",
+            "id": "B",
+            "linked_to": "A",
+            "position": [22.0, 2.0, 0.0],
+            "rotation": 180.0,
+            "color": [0.5, 1.0, 0.5],
+            "scale": [4.0, 2.0]
         }
     ],
 
@@ -20,8 +73,8 @@
         {
             "_comment": "Room_Floor",
             "mesh": "cube",
-            "position": [0.0, 0.0, 0.0],
-            "scale": [10.0, 0.25, 10.0],
+            "position": [-20.0, 0.0, 0.0],
+            "scale": [8.0, 0.25, 8.0],
             "color": [1.0, 1.0, 1.0],
             "texture": "textures/walls/Printmakers_Textures_15.tif",
             "texture_scale": [10.0, 5.0]
@@ -29,53 +82,297 @@
         {
             "_comment": "Room_Ceiling",
             "mesh": "cube",
-            "position": [0.0, 4.0, 0.0],
-            "scale": [10.0, 0.1, 10.0],
+            "position": [-20.0, 4.0, 0.0],
+            "scale": [8.0, 0.1, 8.0],
             "color": [0.8, 0.8, 0.8],
             "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
             "texture_scale": [10.0, 5.0]
         },
         {
-            "_comment": "Room_Wall_PosX",
-            "mesh": "cube",
-            "position": [5.0, 2.0, 0.0],
-            "scale": [0.1, 4.0, 10.0],
-            "color": [0.8, 0.8, 0.8],
-            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
-            "texture_scale": [10.0, 2.5]
-        },
-        {
             "_comment": "Room_Wall_NegX",
             "mesh": "cube",
-            "position": [-5.0, 2.0, 0.0],
-            "scale": [0.1, 4.0, 10.0],
+            "position": [-24.0, 2.0, 0.0],
+            "scale": [0.1, 4.0, 8.0],
             "color": [0.8, 0.8, 0.8],
             "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
             "texture_scale": [10.0, 2.5]
         },
         {
-            "_comment": "Room_Wall_PosZ",
+            "_comment": "Room_Wall_PosZ_left (door opening)",
             "mesh": "cube",
-            "position": [0.0, 2.0, 5.0],
-            "scale": [10.0, 4.0, 0.1],
+            "position": [-22.375, 2.0, 4.0],
+            "scale": [3.25, 4.0, 0.1],
             "color": [0.8, 0.8, 0.8],
             "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
-            "texture_scale": [10.0, 2.5]
+            "texture_scale": [4.0625, 2.5]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_right (door opening)",
+            "mesh": "cube",
+            "position": [-17.625, 2.0, 4.0],
+            "scale": [3.25, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [4.0625, 2.5]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_lintel (above door)",
+            "mesh": "cube",
+            "position": [-20.0, 3.25, 4.0],
+            "scale": [1.5, 1.5, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [1.875, 0.9375]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_door_sealed (porta tampada, marrom)",
+            "mesh": "cube",
+            "position": [-20.0, 1.25, 4.0],
+            "scale": [1.5, 2.5, 0.1],
+            "color": [0.45, 0.28, 0.13],
+            "texture": "textures/walls/Old_Print_Dark_00.tif",
+            "texture_scale": [1.5, 2.5]
         },
         {
             "_comment": "Room_Wall_NegZ",
             "mesh": "cube",
-            "position": [0.0, 2.0, -5.0],
-            "scale": [10.0, 4.0, 0.1],
+            "position": [-20.0, 2.0, -4.0],
+            "scale": [8.0, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Halfwall_inf_posX",
+            "mesh": "cube",
+            "position": [-16.0, 0.5, 0.0],
+            "scale": [0.1, 1.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Halfwall_sup_posX",
+            "mesh": "cube",
+            "position": [-16.0, 3.5, 0.0],
+            "scale": [0.1, 1.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_center_pillar",
+            "mesh": "cube",
+            "position": [-20.0, 2.0, 0.0],
+            "scale": [0.2, 4.0, 0.2],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Floor_02",
+            "mesh": "cube",
+            "position": [20.0, 0.0, 0.0],
+            "scale": [8.0, 0.25, 8.0],
+            "color": [1.0, 1.0, 1.0],
+            "texture": "textures/walls/Printmakers_Textures_15.tif",
+            "texture_scale": [10.0, 5.0]
+        },
+        {
+            "_comment": "Room_Ceiling_02",
+            "mesh": "cube",
+            "position": [20.0, 4.0, 0.0],
+            "scale": [8.0, 0.1, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 5.0]
+        },
+        {
+            "_comment": "Room_Wall_PosX_02",
+            "mesh": "cube",
+            "position": [24.0, 2.0, 0.0],
+            "scale": [0.1, 4.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_02_left (door opening)",
+            "mesh": "cube",
+            "position": [17.625, 2.0, 4.0],
+            "scale": [3.25, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [4.0625, 2.5]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_02_right (door opening)",
+            "mesh": "cube",
+            "position": [22.375, 2.0, 4.0],
+            "scale": [3.25, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [4.0625, 2.5]
+        },
+        {
+            "_comment": "Room_Wall_PosZ_02_lintel (above door)",
+            "mesh": "cube",
+            "position": [20.0, 3.25, 4.0],
+            "scale": [1.5, 1.5, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [1.875, 0.9375]
+        },
+        {
+            "_comment": "Room_Wall_NegZ",
+            "mesh": "cube",
+            "position": [20.0, 2.0, -4.0],
+            "scale": [8.0, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Halfwall_inf_negX",
+            "mesh": "cube",
+            "position": [16.0, 0.5, 0.0],
+            "scale": [0.1, 1.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_Halfwall_sup_negX",
+            "mesh": "cube",
+            "position": [16.0, 3.5, 0.0],
+            "scale": [0.1, 1.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Room_center_pillar_02",
+            "mesh": "cube",
+            "position": [20.0, 2.0, 0.0],
+            "scale": [0.2, 4.0, 0.2],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "Corridor_posZ_floor",
+            "mesh": "cube",
+            "position": [20.0, 0.0, 14.0],
+            "scale": [1.5, 0.25, 20.0],
+            "color": [1.0, 1.0, 1.0],
+            "texture": "textures/walls/Printmakers_Textures_15.tif",
+            "texture_scale": [1.875, 12.5]
+        },
+        {
+            "_comment": "Corridor_posZ_ceiling",
+            "mesh": "cube",
+            "position": [20.0, 2.5, 14.0],
+            "scale": [1.5, 0.1, 20.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [1.875, 12.5]
+        },
+        {
+            "_comment": "Corridor_posZ_left_wall",
+            "mesh": "cube",
+            "position": [19.2, 2.0, 14.0],
+            "scale": [0.1, 4.0, 20.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [25.0, 2.5]
+        },
+        {
+            "_comment": "Corridor_posZ_right_wall",
+            "mesh": "cube",
+            "position": [20.8, 2.0, 14.0],
+            "scale": [0.1, 4.0, 20.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [25.0, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_floor",
+            "mesh": "cube",
+            "position": [20.0, 0.0, 28.0],
+            "scale": [8.0, 0.25, 8.0],
+            "color": [1.0, 1.0, 1.0],
+            "texture": "textures/walls/Printmakers_Textures_15.tif",
+            "texture_scale": [1.875, 12.5]
+        },
+        {
+            "_comment": "FinalRoom_ceiling",
+            "mesh": "cube",
+            "position": [20.0, 2.5, 28.0],
+            "scale": [8.0, 0.1, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [1.875, 12.5]
+        },
+        {
+            "_comment": "FinalRoom_left_wall",
+            "mesh": "cube",
+            "position": [16.0, 2.0, 28.0],
+            "scale": [0.1, 4.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [25.0, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_right_wall",
+            "mesh": "cube",
+            "position": [24.0, 2.0, 28.0],
+            "scale": [0.1, 4.0, 8.0],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [25.0, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_frontWall",
+            "mesh": "cube",
+            "position": [20.0, 2.0, 32.0],
+            "scale": [8.0, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [10.0, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_backwall_left",
+            "mesh": "cube",
+            "position": [17.55, 1.0, 24.0],
+            "scale": [3.0, 4.0, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [2.5, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_backwall_right",
+            "mesh": "cube",
+            "position": [22.5, 1.0, 24.0],
+            "scale": [4.0, 2.5, 0.1],
+            "color": [0.8, 0.8, 0.8],
+            "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
+            "texture_scale": [2.5, 2.5]
+        },
+        {
+            "_comment": "FinalRoom_center_pillar",
+            "mesh": "cube",
+            "position": [20.0, 2.0, 28.0],
+            "scale": [0.2, 4.0, 0.2],
             "color": [0.8, 0.8, 0.8],
             "texture": "textures/walls/Printmakers_Textures_17_Grass.tif",
             "texture_scale": [10.0, 2.5]
         }
+
     ],
 
     "puzzle": {
-        "objective": "Fim (placeholder)",
-        "completion_event": null,
-        "next_level": null
+        "objective": "Encontre a saida.",
+        "completion_event": "go_level_03",
+        "next_level": ""
     }
 }

@@ -2,6 +2,7 @@ from engine.entity import Entity
 from engine.light import PointLight
 from engine.shader import Shader
 from engine.shadow_map import bind_null_cubemap
+from engine.static_batch import StaticBatch
 
 # Must match MAX_LIGHTS in shaders/phong.frag.
 MAX_LIGHTS = 10
@@ -20,17 +21,22 @@ class Scene:
         self.lights: list[PointLight] = []
         self.ambient_color = tuple(ambient_color)
         self._shadows_baked = False
+        # Built lazily by build_static_batch(); when present, draws go through
+        # the merged geometry instead of the per-entity loop.
+        self._static_batch: StaticBatch | None = None
 
     # ── Entity management ────────────────────────────────────────────────────
 
     def add_entity(self, entity: Entity) -> Entity:
         self.entities.append(entity)
         self._shadows_baked = False  # geometry changed → bake invalidated
+        self._static_batch = None    # ...and the merged batch is stale
         return entity
 
     def remove_entity(self, entity: Entity):
         self.entities.remove(entity)
         self._shadows_baked = False
+        self._static_batch = None
 
     # ── Light management ─────────────────────────────────────────────────────
 
@@ -45,8 +51,19 @@ class Scene:
 
     # ── Drawing ──────────────────────────────────────────────────────────────
 
+    def build_static_batch(self) -> None:
+        """Merge the static entities into batched geometry (one draw call per
+        texture+color group). Call once after the scene is populated; cheap to
+        re-call (rebuilds only when invalidated by add/remove)."""
+        if self._static_batch is None:
+            self._static_batch = StaticBatch(self.entities)
+
     def draw(self, shader: Shader):
-        """Draw all entities with the scene shader (lighting + shadows)."""
+        """Draw all entities with the scene shader (lighting + shadows).
+        Uses the merged static batch when it has been built."""
+        if self._static_batch is not None:
+            self._static_batch.draw(shader)
+            return
         for entity in self.entities:
             entity.draw(shader)
 
@@ -55,6 +72,9 @@ class Scene:
         Draw all entities with the depth-only shader (shadow bake).
         Skips color/normal uniforms — only the model matrix matters.
         """
+        if self._static_batch is not None:
+            self._static_batch.draw_depth(depth_shader)
+            return
         for entity in self.entities:
             depth_shader.set_matrix4("model", entity.get_model_matrix())
             entity.mesh.draw()

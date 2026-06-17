@@ -105,8 +105,13 @@ class Portal:
         self._cos_inv_rot = math.cos(inv_theta)
         self._sin_inv_rot = math.sin(inv_theta)
 
-        # Filled in by link_to():
+        # Filled in by set_destination():
         self._traversal_transform: Optional[np.ndarray] = None
+        # Inverse of the traversal transform. Maps a world point/direction from
+        # the FRONT of the destination portal back to the analogous spot in
+        # FRONT of this one — used to "transport" a light through the portal so
+        # it spills out of this opening (see game/portal_lights.py).
+        self._inv_traversal_transform: Optional[np.ndarray] = None
 
         if Portal.mesh_quad is None:
             Portal.mesh_quad = create_portal_mesh()

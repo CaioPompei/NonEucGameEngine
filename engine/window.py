@@ -39,8 +39,8 @@ class Window:
     def process_events(self):
         glfw.poll_events()
 
-    def clear(self):
-        glClearColor(0.1, 0.1, 0.2, 1.0)
+    def clear(self, color=(0.1, 0.1, 0.2, 1.0)):
+        glClearColor(*color)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
 
     def show(self):
@@ -61,6 +61,14 @@ class Window:
         Modo padrão para jogos FPS.
         """
         glfw.set_input_mode(self._window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+
+    def set_cursor_captured(self, captured: bool):
+        """
+        Trava+esconde o cursor para controle FPS (captured=True) ou o libera
+        para telas de menu/UI (captured=False).
+        """
+        mode = glfw.CURSOR_DISABLED if captured else glfw.CURSOR_NORMAL
+        glfw.set_input_mode(self._window, glfw.CURSOR, mode)
 
     def set_callback_mouse(self, funcao):
         """Registra a função que será chamada quando o mouse mover."""

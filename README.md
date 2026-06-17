@@ -26,7 +26,9 @@ A Python + OpenGL prototype exploring **non-Euclidean rendering** via stencil-bu
 | `Left Shift` | Sprint (2x speed) |
 | `V` | Toggle WALK / FREECAM |
 | Mouse | Look around |
-| `ESC` | Exit |
+| `ESC` | Return to menu (quits from the menu) |
+
+In the initial menu, navigate with `↑` / `↓` (or `W` / `S`) and confirm with `Enter` / `Space`.
 
 ## Tech Stack
 

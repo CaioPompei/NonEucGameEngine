@@ -37,6 +37,22 @@ _FACE_TARGETS = (
     GL_TEXTURE_CUBE_MAP_NEGATIVE_Z,  # back
 )
 
+# A horizontal-cross cubemap is one image laid out 4 columns x 3 rows:
+#                [ +Y ]
+#         [ -X ][ +Z ][ +X ][ -Z ]
+#                [ -Y ]
+# Cell (column, row) of each face, in the SAME order as _FACE_TARGETS, so a
+# single PNG can be sliced into the six faces without pre-splitting it.
+_CROSS_COLS, _CROSS_ROWS = 4, 3
+_CROSS_CELLS = (
+    (2, 1),  # right  (+X)
+    (0, 1),  # left   (-X)
+    (1, 0),  # top    (+Y)
+    (1, 2),  # bottom (-Y)
+    (1, 1),  # front  (+Z)
+    (3, 1),  # back   (-Z)
+)
+
 # Unit cube, positions only. The vertex position doubles as the sampling
 # direction, so no UVs or normals are needed. Winding is irrelevant because
 # the engine does not enable face culling.
@@ -76,19 +92,25 @@ void main() {
 class Skybox:
     """A cubemap drawn around the world. Construct after the GL context exists.
 
-    `face_paths` is six image paths in the order:
-        right (+X), left (-X), top (+Y), bottom (-Y), front (+Z), back (-Z).
+    Build it with one of the constructors:
+        Skybox.from_cross(path)   one PNG laid out as a 4x3 horizontal cross
+        Skybox.from_faces(paths)  six separate face images
+
+    Faces are ordered right (+X), left (-X), top (+Y), bottom (-Y),
+    front (+Z), back (-Z) — matching `_FACE_TARGETS`.
     """
 
     # Shared across every Skybox instance: the GLSL program never changes, so
     # there's no reason to recompile it on each level transition.
     _shared_shader: Shader | None = None
 
-    def __init__(self, face_paths):
-        faces = list(face_paths)
+    def __init__(self, face_images):
+        """`face_images` is six PIL Images (RGB) in `_FACE_TARGETS` order.
+        Most callers want `from_cross` or `from_faces` instead."""
+        faces = list(face_images)
         if len(faces) != 6:
             raise ValueError(
-                f"Skybox needs exactly 6 face paths, got {len(faces)}")
+                f"Skybox needs exactly 6 face images, got {len(faces)}")
 
         self._texture = self._load_cubemap(faces)
         self._vao = self._build_cube()
@@ -97,20 +119,58 @@ class Skybox:
             Skybox._shared_shader = Shader(_VS, _FS)
         self._shader = Skybox._shared_shader
 
+    @classmethod
+    def from_faces(cls, face_paths):
+        """Build from six image files (one per face), in `_FACE_TARGETS` order."""
+        paths = list(face_paths)
+        if len(paths) != 6:
+            raise ValueError(
+                f"Skybox needs exactly 6 face paths, got {len(paths)}")
+        return cls([Image.open(p).convert("RGB") for p in paths])
+
+    @classmethod
+    def from_cross(cls, path):
+        """Build from a single horizontal-cross cubemap image (4 cols x 3 rows).
+
+        The image must have a 4:3 aspect (e.g. 2048x1536); it is sliced into the
+        six square faces in-memory, so a level can point at one PNG with no
+        pre-splitting. Faces use a top-left origin (no vertical flip).
+        """
+        image = Image.open(path).convert("RGB")
+        w, h = image.size
+        if w * _CROSS_ROWS != h * _CROSS_COLS:
+            raise ValueError(
+                f"Skybox cross image must be {_CROSS_COLS}:{_CROSS_ROWS} "
+                f"(e.g. 2048x1536), got {w}x{h}: {path}")
+        f = w // _CROSS_COLS
+        faces = [image.crop((c * f, r * f, (c + 1) * f, (r + 1) * f))
+                 for (c, r) in _CROSS_CELLS]
+        return cls(faces)
+
     # ── Public API ───────────────────────────────────────────────────────────
 
-    def draw(self, view, projection):
+    def draw(self, view, projection, stencil_ref=None):
         """Render the sky. Call after the scene so covered pixels are skipped.
 
         `view` is the camera view matrix; its translation is stripped here so
         the box stays centered on the eye.
+
+        `stencil_ref`: when None (the main pass), the stencil test is disabled
+        so the sky fills every uncovered far-plane pixel. When set — drawn
+        inside a portal's virtual view — the stencil test is kept so the sky
+        only fills that portal's masked region (stencil == stencil_ref).
         """
         # Strip translation: pyrr stores it in the last row (cols 0..2).
         view_static = np.array(view, dtype=np.float32, copy=True)
         view_static[3, 0:3] = 0.0
 
         glDepthFunc(GL_LEQUAL)        # depth == far plane must pass
-        glDisable(GL_STENCIL_TEST)    # ignore whatever the portals left set
+        if stencil_ref is None:
+            glDisable(GL_STENCIL_TEST)    # main pass: ignore portal leftovers
+        else:
+            glEnable(GL_STENCIL_TEST)
+            glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
+            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
 
         self._shader.use()
         self._shader.set_matrix4("view", view_static)
@@ -128,14 +188,13 @@ class Skybox:
 
     # ── Internals ────────────────────────────────────────────────────────────
 
-    def _load_cubemap(self, face_paths):
+    def _load_cubemap(self, face_images):
         texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_CUBE_MAP, texture)
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
-        for target, path in zip(_FACE_TARGETS, face_paths):
+        for target, image in zip(_FACE_TARGETS, face_images):
             # No vertical flip: cubemaps sample from a top-left texel origin.
-            image = Image.open(path).convert("RGB")
             width, height = image.size
             glTexImage2D(target, 0, GL_RGB, width, height, 0,
                          GL_RGB, GL_UNSIGNED_BYTE, image.tobytes())

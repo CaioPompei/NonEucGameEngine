@@ -10,7 +10,7 @@ class Camera:
         Process input to move the camera
     """
 
-    def __init__(self, position=(0.0,0.0,3.0), speed=5.0, sensitivity=0.5):
+    def __init__(self, position=(0.0,0.0,3.0), speed=4.0, sensitivity=0.2):
         #World position
         self.position = np.array(position, dtype=np.float32)
 
@@ -47,7 +47,7 @@ class Camera:
 
         speed =  self.speed * delta_time
         if glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS:
-            speed *= 2
+            speed *= 1.5
 
         if glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
             self.position += self.front * speed
@@ -63,10 +63,6 @@ class Camera:
             self.position += self.up * speed
         if glfw.get_key(window, glfw.KEY_Q) == glfw.PRESS:
             self.position -= self.up * speed
-
-        # ESC to close the window
-        if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS: 
-            glfw.set_window_should_close(window, True)
 
     def process_mouse_movement(self, x_pos, y_pos):
         if self.first_mouse:
