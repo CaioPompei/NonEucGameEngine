@@ -47,12 +47,12 @@
         },
         {
             "_comment": "Spot amarelo no objetivo (fim do Corridor02 narrow) - marca o caminho",
-            "type": "spot",
+            "type": "point",
             "position": [8.75, 3.8, 7.2],
             "direction": [0.0, -1.0, 0.0],
             "color": [1.0, 0.85, 0.2],
-            "intensity": 1.5,
-            "range": 5.0,
+            "intensity": 1.0,
+            "range": 5.5,
             "inner_angle": 12.0,
             "outer_angle": 26.0,
             "cast_shadows": false

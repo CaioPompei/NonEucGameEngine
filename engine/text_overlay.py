@@ -77,6 +77,16 @@ class TextOverlay:
         self._rasterize_and_upload(text)
         self._build_quad(self._margin_px, self._corner)
 
+    def resize(self, window_width, window_height, offset_px=None):
+        """Adapt to a new window/framebuffer size. The text keeps its pixel
+        size (so HUD readouts stay legible); only the NDC quad is rebuilt.
+        Pass `offset_px` to also re-anchor the quad (used by the menu, whose
+        slots are positioned proportionally to the window height)."""
+        self._window_size = (window_width, window_height)
+        if offset_px is not None:
+            self._offset_px = offset_px
+        self._build_quad(self._margin_px, self._corner)
+
     def draw(self):
         # Overlay must ignore the 3D depth/stencil state
         glDisable(GL_DEPTH_TEST)

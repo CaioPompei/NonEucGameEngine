@@ -26,27 +26,34 @@ class Menu:
                  color=(235, 235, 245, 255)):
         self._actions = [action for _, action in items]
         self._selected = 0
+        # Kept so resize() can recompute the proportional layout.
+        self._selected_font_size = selected_font_size
 
         # Title: centered, shifted up toward the top, no background box.
         self._title = TextOverlay(
             title, window_width, window_height,
             font_size=title_font_size, color=color,
             padding=6, corner="center", background=(0, 0, 0, 0),
-            offset_px=(0, int(window_height * 0.30)),
+            offset_px=(0, self._title_offset_y(window_height)),
             font_name=title_font_name)
+        
+        self._demotext = TextOverlay(
+            "Tech Demo", window_width, window_height,
+            font_size=26, color=color,
+            padding=50, corner="center", background=(0, 0, 0, 0),
+            offset_px=(0, self._title_offset_y(window_height) + 50),
+            font_name=font_name)
 
         # Items: stacked and vertically centered as a block, sitting a touch
         # below the screen centre. Each gets a normal-size and a selected-size
         # overlay at the same vertical slot, so growing the selection stays
         # centered on its slot.
         n = len(items)
-        spacing = selected_font_size + 30
-        block_center_y = -int(window_height * 0.05)
 
         self._normal = []
         self._selected_overlays = []
         for i, (label, _) in enumerate(items):
-            slot_y = block_center_y + int(((n - 1) / 2.0 - i) * spacing)
+            slot_y = self._slot_offset_y(window_height, i, n)
             self._normal.append(TextOverlay(
                 label, window_width, window_height,
                 font_size=item_font_size, color=color,
@@ -62,6 +69,29 @@ class Menu:
         self._up_was = False
         self._down_was = False
         self._activate_was = False
+
+    # ── Layout (shared by __init__ and resize) ──────────────────────────────
+
+    def _title_offset_y(self, window_height):
+        return int(window_height * 0.30)
+
+    def _slot_offset_y(self, window_height, index, count):
+        spacing = self._selected_font_size + 30
+        block_center_y = -int(window_height * 0.05)
+        return block_center_y + int(((count - 1) / 2.0 - index) * spacing)
+
+    def resize(self, window_width, window_height):
+        """Re-anchor every overlay for a new window/framebuffer size, keeping
+        the layout proportional to the height."""
+        self._title.resize(window_width, window_height,
+                           offset_px=(0, self._title_offset_y(window_height)))
+        n = len(self._actions)
+        for i in range(n):
+            slot_y = self._slot_offset_y(window_height, i, n)
+            self._normal[i].resize(window_width, window_height,
+                                   offset_px=(0, slot_y))
+            self._selected_overlays[i].resize(window_width, window_height,
+                                             offset_px=(0, slot_y))
 
     def reset(self):
         """Put the cursor back on the first item and swallow any key that is
@@ -96,6 +126,7 @@ class Menu:
 
     def draw(self):
         self._title.draw()
+        self._demotext.draw()
         for i in range(len(self._actions)):
             overlay = (self._selected_overlays[i] if i == self._selected
                        else self._normal[i])

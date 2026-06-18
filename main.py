@@ -22,6 +22,16 @@ WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 720
 
 
+def make_projection(width, height):
+    # near is intentionally tiny: the player can put the camera within a few
+    # millimeters of a portal quad before traversing, and any geometry closer
+    # than `near` is clipped — which would leave visible holes on the portal
+    # edges right before the teleport ("cut" effect).
+    return pyrr.matrix44.create_perspective_projection(
+        90.0, width / height, 0.01, 100.0, np.float32
+    )
+
+
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "What is There?")
     camera = Camera(position=(0.0, 0.3, 3.0))
@@ -96,13 +106,22 @@ def main():
         font_size=18, color=(255, 255, 255, 200),
         padding=2, corner="center", background=(0, 0, 0, 0))
 
-    # near is intentionally tiny: the player can put the camera within a few
-    # millimeters of a portal quad before traversing, and any geometry closer
-    # than `near` is clipped — which would leave visible holes on the portal
-    # edges right before the teleport ("cut" effect).
-    projection = pyrr.matrix44.create_perspective_projection(
-        90.0, WINDOW_WIDTH / WINDOW_HEIGHT, 0.01, 100.0, np.float32
-    )
+    projection = make_projection(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+    def on_resize(width, height):
+        """Adapt everything that depends on the framebuffer size: the camera
+        projection (aspect ratio) and every screen-space overlay."""
+        nonlocal projection
+        projection = make_projection(width, height)
+        main_menu.resize(width, height)
+        debug_label_overlay.resize(width, height)
+        stats_overlay.resize(width, height)
+        crosshair_overlay.resize(width, height)
+
+    window.on_resize(on_resize)
+    # Sync once to the real framebuffer size (may differ from the requested
+    # size on HiDPI displays) before the first frame.
+    on_resize(*window.get_size())
 
     previous_time = glfw.get_time()
     stats_next_update = 0.0
@@ -126,6 +145,7 @@ def main():
     state = STATE_MENU
     window.set_cursor_captured(False)
     esc_was_pressed = False
+    f11_was_pressed = False  # F11 toggles fullscreen, edge-triggered
 
     while not window.window_close():
         real_time = glfw.get_time()
@@ -140,6 +160,18 @@ def main():
                                glfw.KEY_ESCAPE) == glfw.PRESS
         esc_pressed = esc_now and not esc_was_pressed
         esc_was_pressed = esc_now
+
+        # F11 toggles fullscreen in any state. Toggling re-creates the window's
+        # surface, so re-apply the cursor mode and reset the look state to avoid
+        # a camera jump, and discard the dt spike from the (brief) stall.
+        f11_now = glfw.get_key(window.get_handle(),
+                               glfw.KEY_F11) == glfw.PRESS
+        if f11_now and not f11_was_pressed:
+            window.toggle_fullscreen()
+            window.set_cursor_captured(state == STATE_PLAYING)
+            camera.first_mouse = True
+            previous_time = glfw.get_time()
+        f11_was_pressed = f11_now
 
         if state == STATE_MENU:
             if esc_pressed:

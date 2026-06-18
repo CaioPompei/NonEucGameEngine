@@ -83,10 +83,17 @@ class PortalRenderer:
 
             # _draw_scene and the recursion switched programs and uniforms;
             # rebind the stencil shader and quad uniforms before the
-            # decrement/restore pair.
+            # restore/decrement pair.
             self._bind_quad_uniforms(portal, view, projection)
+            # Restore the quad's depth *before* decrementing, so it is written
+            # only inside this portal's own stencil region (stencil==depth+1),
+            # i.e. exactly where the portal is visible. Doing it after the
+            # decrement — when the whole screen is back to `depth` — would let
+            # the GL_ALWAYS write splatter the quad's depth across its entire
+            # screen projection, clobbering the depth of walls that occlude the
+            # portal and letting a sibling portal's view leak through them.
+            self._restore_depth_at_portal(depth + 1)
             self._mark_stencil_dec(depth + 1)
-            self._restore_depth_at_portal(depth)
 
     # ── Stencil / depth state helpers ─────────────────────────────────────────
 
@@ -107,12 +114,25 @@ class PortalRenderer:
         glDepthMask(GL_TRUE)
 
     def _mark_stencil_dec(self, stencil_ref):
-        """Undo the matching increment so siblings aren't masked out."""
+        """Undo the matching increment so siblings aren't masked out.
+
+        Decrements with GL_ALWAYS (NOT the depth test) so it is symmetric with
+        the increment: every pixel that became `stencil_ref` is returned to
+        `stencil_ref - 1`. The increment is depth-gated (it marks only where the
+        portal is visible), but by the time we decrement, that region's depth
+        has been overwritten (reset to far, then the virtual scene, then the
+        restored quad depth), so a depth-gated decrement would fail the test on
+        many pixels and leave residual stencil behind. The next sibling portal
+        draws where stencil equals that same value, so any leftover lets its
+        view bleed into this portal's region — the overlap artifact.
+        """
         glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_DECR)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_FALSE)
+        glDepthFunc(GL_ALWAYS)
         Portal.mesh_quad.draw()
+        glDepthFunc(GL_LESS)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
         glDepthMask(GL_TRUE)
 
@@ -137,6 +157,11 @@ class PortalRenderer:
         """
         Write the portal quad's real depth inside stencil==stencil_ref so the
         next sibling portal at this depth sees a consistent depth buffer.
+
+        Must be called with this portal's *interior* stencil ref (depth+1),
+        before that region is decremented, so the GL_ALWAYS write is confined
+        to the pixels where the portal is actually visible — never the parts of
+        the quad that real geometry occludes.
         """
         glStencilFunc(GL_EQUAL, stencil_ref, 0xFF)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
