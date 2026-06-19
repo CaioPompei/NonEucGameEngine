@@ -70,7 +70,7 @@ def main():
             scene=lvl.scene,
             scene_shader=phong_shader,
             stencil_shader=simple_shader,
-            max_depth=0,
+            max_depth=1,
             skybox=lvl.skybox,
         )
         player.reset(lvl.player_start, lvl.player_start_dir)
