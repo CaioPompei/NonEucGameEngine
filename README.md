@@ -1,5 +1,11 @@
 # NonEucGameEngine
 
+<p align="center">
+  <img src="docs/impossible-corridor.gif" alt="Walking through a door into a room that is right behind it, then turning around to see a 20-metre corridor" width="720" />
+</p>
+
+<p align="center"><em>The door opens straight into the next room. Turn around, and the way you came is a 20-metre corridor.</em></p>
+
 A Python + OpenGL 3.3 game engine built to explore **non-Euclidean rendering**
 via **stencil-buffer portals**: paired portals connect distinct regions of the
 world, and the renderer recurses through them so portals seen *inside* a portal
