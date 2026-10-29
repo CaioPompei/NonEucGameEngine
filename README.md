@@ -6,6 +6,8 @@
 
 <p align="center"><em>The door opens straight into the next room. Turn around, and the way you came is a 20-metre corridor.</em></p>
 
+<p align="center"><a href="docs/demo.mp4"><strong>▶ Watch the 35-second demo</strong></a></p>
+
 A Python + OpenGL 3.3 game engine built to explore **non-Euclidean rendering**
 via **stencil-buffer portals**: paired portals connect distinct regions of the
 world, and the renderer recurses through them so portals seen *inside* a portal
